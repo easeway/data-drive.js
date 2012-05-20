@@ -38,3 +38,8 @@ Wanna to know the magic? Look into the code. It's fairly simple.
 And secondly, we feel uncomfortable that we have to develop the UI using Javascript every time. As UI changes frequently, using Javascript to generate HTML dynamically introduces a lot of work constantly. Well, HTML is powerful enough, why shall we still stay in a non-WYSIWYG way?
 
 The Data-Drive framework brings another feature that organizes UI dynamically and automatically based on the concepts of template and data-binding. The UI is organized with pieces of HTML templates while the data can be filled in using data-binding. What's more, data-binding can also change the layout, styles, events, animations, etc, by reflecting the changes automatically from data models which are specially designed for UI structures. Then we can focus on pure HTML design, and only very little code.
+
+Supported Browsers
+------------------
+
+The initial version supports WebKit based browsers: Safari, Chrome. And Firefox will be in near future.
