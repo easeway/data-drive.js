@@ -357,13 +357,23 @@
     // Resolve a name for a data context
     // @param name    The name of a data context; it can be suffixed by "[index]" for
     //                an item in the list context.
+    //                simply "[index]" is equivalent to resolveItem.
     DataSource.prototype.resolve = function (name) {
-        if (this.dataMap == null) {
-            return null;
+        var m = name.match(/^(.*)\[(\d+)\]$/);
+        var path = name, index = -1;
+        if (m.length >= 3) {
+            path = m[1];
+            index = parseInt(m[2]);
         }
-        var m = name.match(/^(.+)\[(\d+)\]$/);
-        var context = m && m.length >= 3 ? this.dataMap.get(m[1], parseInt(m[2])) : this.dataMap.get(name);
-        return context != null ? new DataSource(context, this.dataMap) : null;
+        if (typeof(path) == "string" && path.length > 0) {
+            if (this.dataMap == null) {
+                return null;
+            }
+            return index >= 0 ? this.dataMap.get(path, index) : this.dataMap.get(path);
+        } else if (index >= 0) {
+            return this.resolveItem(index);
+        }
+        return null;
     };
 
     // Resolve for the data source of an item

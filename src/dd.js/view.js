@@ -61,12 +61,12 @@
             }
             attr = element.attributes.getNamedItem(attrBindScript);
             if (attr) {
-                var script = attr.value;
+                var execScript = attr.value;
                 var binder = {
                     id: this.contentBinders.length,
                     parent: currentDatasetBinder,
                     update: function (context) {
-                        evalUpdateScript(context, script);
+                        evalUpdateScript(context, execScript);
                     }
                 };
                 attr.value = binder.id;
@@ -92,10 +92,10 @@
                         }
                         var next = textContent.indexOf("?}", pos);
                         if (next > pos) {
-                            var script = textContent.substr(pos + 3, next - pos - 3);
-                            if (script.length > 0) {
+                            var textScript = textContent.substr(pos + 3, next - pos - 3);
+                            if (textScript.length > 0) {
                                 content.push(function (context) {
-                                    return evalUpdateScript(context, script);
+                                    return evalUpdateScript(context, textScript);
                                 });
                                 scriptCount ++;
                             }
@@ -555,7 +555,7 @@
     function ViewList_RemoveItem(index, item) {
         if (this.layoutManager != null &&
             typeof(this.layoutManager.removeItem) == "function") {
-            this.layoutManager.removeItem.call(this.layoutManager, index, item);
+            this.layoutManager.removeItem.call(this.layoutManager, this, index, item);
         } else {
             item.detach();
         }
@@ -563,6 +563,12 @@
     
     // Exports to namespace
     DD.ViewList = ViewList;
+    
+    // create Template from DOM element
+    // @param element the container element, it is better to be a div
+    DD.templateFromElement = function (element) {
+        return new Template(element);
+    }
     
     // create Template from HTML
     // The content inside body is used as innerHTML, and other contents are disposed.
