@@ -14,7 +14,7 @@
         var dummyCallback = function () { };
         dataContext.add(dummyCallback, data);
         Test.assert(dataContext._subscribers.length == 1, "Add one subscriber");
-        Test.assert(dataContext._subscribers[0] == dummyCallback, "Subscriber key");
+        Test.assert(dataContext._subscribers[0].key == dummyCallback, "Subscriber key");
         
         dataContext.remove(dummyCallback);
         Test.assert(dataContext._subscribers.length == 0, "Remove a subscriber");
