@@ -1,5 +1,6 @@
 // Copyright (c) 2012, Yisui Hu <easeway@gmail.com>
 // All rights reserved.
+// -----------------------------------------------------------------------------
 
 // The Binding module provides an observer pattern implementation.
 // The main purpose is for binding a data source to a certain element
@@ -89,6 +90,15 @@
     
     var DataContext = function (provider) {
         Subscription.call(this);
+        this._contextType = "DataContext";
+        this.set(provider, true);
+    };
+    
+    DD.inherit(DataContext, Subscription);
+    
+    // Set provider
+    DataContext.prototype.set = function (provider, init) {
+        var oldData = this.data();
         if (typeof(provider) != "function") {
             this._provider = function () {
                 return provider;
@@ -96,14 +106,14 @@
         } else {
             this._provider = provider;
         }
-        this._contextType = "DataContext";
+        if (!init) {
+            this.update(oldData);
+        }
     };
-    
-    DD.inherit(DataContext, Subscription);
     
     // Get the wrapped data model
     DataContext.prototype.data = function () {
-        return this._provider();
+        return this._provider != null ? this._provider() : null;
     };
     
     // Notify that the data model is updated in-place
@@ -134,6 +144,15 @@
     
     var ListContext = function (provider) {
         DataContext.call(this, provider);
+        this._contextType = "ListContext";
+    };
+    
+    DD.inherit(ListContext, DataContext);
+    
+    // Override set
+    ListContext.prototype.set = function (provider, init) {
+        var oldData = this.data();
+        DataContext.prototype.set.call(this, provider, true);
         this._itemContexts = [ ];
         var items = this.data();
         if (DataContext.isArray(items)) {
@@ -141,10 +160,10 @@
                 this._itemContexts.push(DD.createDataContext(items[i]));
             }
         }
-        this._contextType = "ListContext";
+        if (!init) {
+            this.update(oldData);
+        }
     };
-    
-    DD.inherit(ListContext, DataContext);
     
     // Retrieve all the data contexts for all the items
     ListContext.prototype.items = function () {
@@ -282,6 +301,25 @@
         this._map = { };
     };
     
+    // Add new data context or update the data of existing context
+    // @param name    The unique name to be associated
+    // @param data    The new data model
+    // @remarks
+    //     If the data context of name doesn't exists, a new data context
+    // is added after the name. Otherwise, the data is replaced with new
+    // data model and notification is sent.
+    NamedDataMap.prototype.set = function (name, data) {
+        var prev = this._map[name];
+        if (prev == null) {
+            var dc = DD.createDataContext(data);
+            this.put(name, dc);
+            return dc;
+        } else {
+            prev.set(data);
+            return prev;
+        }
+    };
+    
     // Associate a data context with a specified name
     // @param name    The unique name to be associated
     // @param context The data context
@@ -361,7 +399,7 @@
     DataSource.prototype.resolve = function (name) {
         var m = name.match(/^(.*)\[(\d+)\]$/);
         var path = name, index = -1;
-        if (m.length >= 3) {
+        if (m != null && m.length >= 3) {
             path = m[1];
             index = parseInt(m[2]);
         }
@@ -369,7 +407,10 @@
             if (this.dataMap == null) {
                 return null;
             }
-            return index >= 0 ? this.dataMap.get(path, index) : this.dataMap.get(path);
+            var dataContext = index >= 0 ? this.dataMap.get(path, index) : this.dataMap.get(path);
+            if (dataContext != null) {
+                return new DataSource(dataContext, this.dataMap);
+            }
         } else if (index >= 0) {
             return this.resolveItem(index);
         }

@@ -1,5 +1,6 @@
 // Copyright (c) 2012, Yisui Hu <easeway@gmail.com>
 // All rights reserved.
+// -----------------------------------------------------------------------------
 
 // Adapter for jQuery
 

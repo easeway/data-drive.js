@@ -1,5 +1,6 @@
 // Copyright (c) 2012, Yisui Hu <easeway@gmail.com>
 // All rights reserved.
+// -----------------------------------------------------------------------------
 
 // The registration of DataDrive namespace
 // and provides basic functions
@@ -9,6 +10,43 @@
     var DataDrive = {
             VERSION: "0.1.0"
         };
+    
+    DataDrive.bind = function (context, func) {
+        return function () {
+            func.apply(context, arguments);
+        };
+    };
+    
+    DataDrive.byId = function (id) {
+        return document.getElementById(id);
+    };
+    
+    DataDrive.addStyles = function (element, styleNames) {
+        if (typeof(styleNames) == "string") {
+            styleNames = [styleNames];
+        }
+        var styles = element.className.split(' ');
+        for (var i = 0; i < styleNames.length; i ++) {
+            if (styles.indexOf(styleNames[i]) < 0) {
+                styles.push(styleNames[i]);
+            }
+        }
+        element.className = styles.join(' ');
+    };
+    
+    DataDrive.removeStyles = function (element, styleNames) {
+        if (typeof(styleNames) == "string") {
+            styleNames = [styleNames];
+        }
+        var styles = element.className.split(' ');
+        var final = [ ]
+        for (var i = 0; i < styles.length; i ++) {
+            if (styleNames.indexOf(styles[i]) < 0) {
+                final.push(styles[i]);
+            }
+        }
+        element.className = final.join(' ');        
+    };
     
     // Simple logging facility
     // may be refactored in future

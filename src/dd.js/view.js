@@ -1,5 +1,6 @@
 // Copyright (c) 2012, Yisui Hu <easeway@gmail.com>
 // All rights reserved.
+// -----------------------------------------------------------------------------
 
 // This module includes
 //    - Template    The template for creating a view
@@ -25,6 +26,10 @@
     
     Template.prototype = { };
 
+    Template.prototype.topBinder = function () {
+        return this.contentBinders[0];
+    };
+    
     Template.prototype.createBinding = function (view) {
         return new BindingInstance(this, view);
     };
@@ -88,24 +93,22 @@
                     var pos = textContent.indexOf("{?=", start);
                     if (pos >= 0) {
                         if (pos > start) {
-                            content.push(textContent.substr(start, pos - start));
+                            content.push({ f: false, t: textContent.substr(start, pos - start)});
                         }
                         var next = textContent.indexOf("?}", pos);
                         if (next > pos) {
                             var textScript = textContent.substr(pos + 3, next - pos - 3);
                             if (textScript.length > 0) {
-                                content.push(function (context) {
-                                    return evalUpdateScript(context, textScript);
-                                });
+                                content.push({ f: true, t: textScript });
                                 scriptCount ++;
                             }
                             start = next + 2;
                             continue;
                         } else {
-                            content[content.length - 1] = textContent.substr(start);
+                            content[content.length - 1] = { f: false, t: textContent.substr(start) };
                         }
                     } else if (content.length > 0 && start < textContent.length) {
-                        content.push(textContent.substr(start));
+                        content.push({ f: false, t: textContent.substr(start) });
                     }
                     break;
                 }
@@ -124,11 +127,7 @@
                                 var text = "";
                                 for (var j = 0; j < this.textContents.length; j ++) {
                                     var cnt = this.textContents[j];
-                                    if (typeof(cnt) == "function") {
-                                        text += cnt(context);
-                                    } else {
-                                        text += cnt;
-                                    }
+                                    text += cnt.f ? evalUpdateScript(context, cnt.t) : cnt.t;
                                 }
                                 node.textContent = text;
                             }
@@ -233,14 +232,17 @@
                         }
                     }
                 };
+                
                 this.subscriptions.push(subscription);
                 if (dataset.element != null) {
                     dataset.element.subscription = subscription;
                 }
-                subscription.source.subscribe(subscription.callback, subscription);
                 
-                // initial update after being subcribed
-                subscription.callback.call(subscription);
+                if (subscription.source != null) {
+                    subscription.source.subscribe(subscription.callback, subscription);
+                    // initial update after being subcribed
+                    subscription.callback.call(subscription);
+                }
             }
             return true;
         }
@@ -251,7 +253,9 @@
         if (this.subscriptions != null) {
             for (var i = 0; i < this.subscriptions.length; i ++) {
                 var subscription = this.subscriptions[i];
-                subscription.source.unsubscribe(subscription.callback);
+                if (subscription.source != null) {
+                    subscription.source.unsubscribe(subscription.callback);
+                }
                 if (subscription.dataset.element != null) {
                     subscription.dataset.element.subscription = null;
                 }
@@ -306,7 +310,18 @@
     // An instance of View is a sub DOM-tree with data bindings, it can
     // be attached to an element in current DOM document and updated
     // automatically when the bounded data models are changed.
-    var View = function (template) {
+    var View = function (template, opts) {
+
+        // if containerUpdate is true, template.topBinder binds the container,
+        // and onUpdate event should be triggered when the data source is changed        
+        if (opts != null && opts.containerUpdate) {
+            template.topBinder().update = function (context) {
+                if (context != null && context.view != null &&
+                    typeof(context.view.onUpdate) == "function") {
+                    context.view.onUpdate(context);
+                }
+            };
+        }
         this.container = null;
         this.parentView = null;
         this.binding = template.createBinding(this);
@@ -347,7 +362,11 @@
         return this.findDataSourceByElement(childView.container);
     };
     
-    View.prototype.addChildView = function (view) {
+    View.prototype.onUpdate = function (context) {
+        // Do nothing, can be overridden by sub-classes
+    };
+    
+    View.prototype.onAttachView = function (view) {
         var index = this.childViews.indexOf(view);
         if (index < 0) {
             this.childViews.push(view);
@@ -355,12 +374,16 @@
         }
     };
     
-    View.prototype.removeChildView = function (view) {
+    View.prototype.onDetachView = function (view) {
         var index = this.childViews.indexOf(view);
         if (index >= 0) {
             this.childViews.splice(index, 1);
             view.unsubscribe();
         }
+    };
+    
+    View.prototype.addView = function (view, index) {
+        view.attach(this.element, index);
     };
     
     View.prototype.attach = function (container, index) {
@@ -375,7 +398,7 @@
         }
         
         if (this.parentView) {
-            this.parentView.addChildView(this);
+            this.parentView.onAttachView(this);
         }
     };
     
@@ -384,7 +407,7 @@
             this.container.removeChild(this.element);
             this.container = null;
             if (this.parentView) {
-                this.parentView.removeChildView(this);
+                this.parentView.onDetachView(this);
                 this.parentView = null;
             }
             if (this.dataSource != null) {
@@ -395,8 +418,11 @@
 
     View.prototype.subscribe = function (dataSource) {
         this.unsubscribe();
-        if (this.binding.subscribe(dataSource)) {
-            this.dataSource = dataSource;
+        // first set dataSource, for initializing update
+        this.dataSource = dataSource;
+        // reset dataSource if binding fails
+        if (!this.binding.subscribe(dataSource)) {
+            this.dataSource = null;
         }
     };
     
@@ -411,6 +437,14 @@
         }
     };
     
+    View.prototype.addStyles = function (styleNames) {
+        DD.addStyles(this.element, styleNames);
+    };
+    
+    View.prototype.removeStyles = function (styleNames) {
+        DD.removeStyles(this.element, styleNames);
+    };
+    
     // Export to namespace
     DD.View = View;
     
@@ -422,36 +456,10 @@
     // When using ViewList, a layout manager must be provided to create and modify
     // the DOM-tree expectedly for every item change.
     var ViewList = function (itemTemplate, layoutManager) {
-        var elm = document.createElement("div");
-        var attr = document.createAttribute(attrBindScript);
-        attr.value = "true";    // this is dummy value as the callback will be updated later
-        elm.attributes.setNamedItem(attr);
-        
-        // create template and replace callback
-        var template = new Template(elm);
-        template.contentBinders[0].update = function (context) {
-            if (context == null || context.changes == null || context.view == null) {
-                return;
-            }
-            
-            var view = context.view;
-            if (view.dataSource == null) {
-                return;
-            }
-            
-            if (context.changes.action == DD.INSERT &&
-                typeof(view.onItemInserted) == "function") {
-                view.onItemInserted(context, this);
-            } else if (context.changes.action == DD.REMOVE &&
-                       typeof(view.onItemRemoved) == "function") {
-                view.onItemRemoved(context, this);
-            } else {    // here mean whole list is changed
-                ViewList_InitializeItems.call(view);
-            }
-        };
+        var template = DD.containerTemplate(true);
         
         // call base constructor
-        View.call(this, template);
+        View.call(this, template, { containerUpdate: true });
         
         // initialize
         this.itemTemplate = itemTemplate;
@@ -460,8 +468,25 @@
     
     DD.inherit(ViewList, View);
 
-    // Override addChildView as they are organized ordered
-    ViewList.prototype.addChildView = function (view) {
+    ViewList.prototype.onUpdate = function (context) {
+        if (context.changes == null) {
+            // this is initializing update
+            ViewList_InitializeItems.call(this);
+        } else {
+            if (context.changes.action == DD.INSERT &&
+                typeof(this.onItemInserted) == "function") {
+                this.onItemInserted(context, this);
+            } else if (context.changes.action == DD.REMOVE &&
+                       typeof(this.onItemRemoved) == "function") {
+                this.onItemRemoved(context, this);
+            } else {    // here mean whole list is changed
+                ViewList_InitializeItems.call(this);
+            }
+        }
+    };
+    
+    // Override onAttachView as they are organized ordered
+    ViewList.prototype.onAttachView = function (view) {
         var index = view.viewListIndex;
         if (index == null || index < 0 || index >= this.childViews.length) {
             index = this.childViews.length;
@@ -470,13 +495,6 @@
         this.childViews.splice(index, 0, view);
         var dataSource = this.dataSource != null ? this.dataSource.resolveItem(index) : null;
         view.subscribe(dataSource);
-    };
-    
-    ViewList.prototype.subscribe = function (dataSource) {
-        View.prototype.subscribe.call(this, dataSource);
-        if (this.dataSource != null) {
-            ViewList_InitializeItems.call(this);
-        }
     };
     
     ViewList.prototype.unsubscribe = function() {
@@ -564,11 +582,27 @@
     // Exports to namespace
     DD.ViewList = ViewList;
     
+    // create Template for an empty container
+    DD.containerTemplate = function (registerBindScript) {
+        var elm = document.createElement("div");
+        
+        // If registerBindScript is true, a stub script will be added for bind:x
+        // and this can be later updated with function by assign
+        // template.topBinder
+        if (registerBindScript) {
+            var attr = document.createAttribute(attrBindScript);
+            attr.value = "true";    // this is dummy value as the callback will be updated later
+            elm.attributes.setNamedItem(attr);
+        }
+        
+        return DD.templateFromElement(elm);
+    };
+    
     // create Template from DOM element
     // @param element the container element, it is better to be a div
     DD.templateFromElement = function (element) {
         return new Template(element);
-    }
+    };
     
     // create Template from HTML
     // The content inside body is used as innerHTML, and other contents are disposed.
@@ -578,6 +612,6 @@
         var elm = document.createElement("div");
         elm.innerHTML = innerHTML;
         return new Template(elm);
-    }
+    };
         
 })(window);
