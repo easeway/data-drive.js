@@ -14,24 +14,28 @@ The initiative
 Normally, when developing web pages using some Javascript MVC frameworks, we need to update all related views explicitly after we update the data models.  
 For example:
 
-    // we got some data from the form and update the model  
-    var person = Persons.add();
-    person.name = formData["name"];
-    person.birthday = formData["birthday"];
-    Persons.select(person);
-    // now it is time to update the views
-    personListView.update();
-    selectedPersonInfoView.update();
+```javascript
+// we got some data from the form and update the model  
+var person = Persons.add();
+person.name = formData["name"];
+person.birthday = formData["birthday"];
+Persons.select(person);
+// now it is time to update the views
+personListView.update();
+selectedPersonInfoView.update();
+```
 
 We really hate the lines explicitly updating the views. We actually have the knowledge about the relationships between views and data models when we initialize the whole page. We want to that update automatically, with Data-Drive, as follow:  
 
-    // same code to update the model
-    var person = Persons.add();
-    person.name = formData["name"];
-    person.birthday = formData["birthday"];
-    Persons.select(person);
-    // now, the simple statement do all updates
-    Persons.update();
+```javascript
+// same code to update the model
+var person = Persons.add();
+person.name = formData["name"];
+person.birthday = formData["birthday"];
+Persons.select(person);
+// now, the simple statement do all updates
+Persons.update();
+```
 
 Wanna to know the magic? Look into the code. It's fairly simple.
 
@@ -43,6 +47,7 @@ How to build
 ------------
 
 In "src" folder, the code is splitted in several .js files. You can build to generate a single .js file including all code pieces. It is quite straight forward to build the code:
+
 1. cd into the root folder of the source tree
 2. type "./build.pl" or "perl build.pl"
 
