@@ -66,7 +66,7 @@ Now, create HTML for the list
 
 ```html
 ...
-   <div data-drive-map="group">
+   <div data-drive-map="group" data-drive-on="update:onGroupUpdated(this)">
        <h1>Group - %{ $D.name }</h1>
        <ul data-drive-map=".members">
            <li>
@@ -85,12 +85,21 @@ Now, create HTML for the list
 We can use AjaxConnector to automatically load data from server
 
 ```javascript
-DD.AjaxConnect(DD.Models.findProperty("group"), "groups/groupId", { method: 'GET' });
-// DD.AjaxConnect extend the data model with "reload" method.
-DD.Models.group.reload();
+var model = DD.Models.findProperty("group");
+DD.AjaxConnect(model, "groups/groupId", { method: 'GET' });
+// DD.AjaxConnect extend the data model with "reload" method. This is used only once.
+model.reload();
 // reload will automatically invoke Ajax call and fill the response JSON to data model
 // and finally update HTML
 ```
+
+Events Subscription
+-------------------
+
+In the example above, we use ```data-drive-on``` attribute to subscribe the events for
+any changes on the model specified by ```data-drive-map``` on current element or parents.
+Here ```update:onGroupUpdated(this)``` will invoke ```onGroupUpdated(this)``` when ```update```
+event is emitted on the data model.
 
 Change of HTML by Javascript
 ----------------------------
