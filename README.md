@@ -4,62 +4,120 @@ Data-Drive Javascript Framework (DD.js)
 What is Data-Drive?
 -------------------
 
-Data-Drive is a Javascript Framework which simplifies and automates the work to update the views when the associated data models are changed. With help of this framework, we can focus on either UI design, modeling, or transition (event processing), with each group of work separated clearly. Changes on UI design won't impact any other two groups of work, and vice versa.
+Data-Drive is a client-side Javascript MVC Framework. It helps you focus on data
+models and business logics by saving the time writing a lot of code manipulating
+HTML dynamically. See how Data-Drive works in next three steps:
 
-The short name is DD.js which is simpler.
+How to use
+----------
 
-The initiative
---------------
+Step 1. Design your data models
 
-Normally, when developing web pages using some Javascript MVC frameworks, we need to update all related views explicitly after we update the data models.  
+```javascript
+var personSchema = new DD.Schema({
+    name: DD.Types.Scalar,
+    gender: DD.Types.Scalar,
+    age: DD.Types.Scalar,
+    birthday: DD.Types.Scalar,
+    ...
+});
+
+DD.Models.register("person", personSchema);
+```
+
+Step 2. Build your static HTML file
+
+```html
+...
+   <table id="#person" data-drive-map="person">
+       <tr><td>Name</td><td>%{ $D.name }</td></tr>
+       <tr><td>Gender</td><td>%{ $D.gender }</td></tr>
+       <tr><td>Age</td><td>%{ $D.age }</td></tr>
+       <tr><td>Birthday</td><td>%{ formatToLocalDate($D.birthday) }</td></tr>
+   </table>
+...
+```
+
+Step 3. Fill data in data model
+
+```javascript
+$.get("persons/id").done(function (json) {
+    DD.Models.person = json;
+    // The HTML is automatically updated
+});
+```
+
+More complicated use
+--------------------
+
+The most powerful use is to manipulate a list of data items automatically. Let's
+add one more data model:
+
+```javascript
+var groupSchema = new DD.Schema({
+    name: DD.Types.Scalar,
+    members: [personSchema]
+});
+
+DD.Models.register("group", groupSchema);
+```
+
+Now, create HTML for the list
+
+```html
+...
+   <div data-drive-map="group">
+       <h1>Group - %{ $D.name }</h1>
+       <ul data-drive-map=".members">
+           <li>
+               <table>
+                   <tr><td>Name</td><td>%{ $D.name }</td></tr>
+                   <tr><td>Gender</td><td>%{ $D.gender }</td></tr>
+                   <tr><td>Age</td><td>%{ $D.age }</td></tr>
+                   <tr><td>Birthday</td><td>%{ formatDate($D.birthday) }</td></tr>
+               </table>
+           </li>
+       </ul>
+   </div>
+...
+```
+
+We can use AjaxConnector to automatically load data from server
+
+```javascript
+DD.AjaxConnect(DD.Models.findProperty("group"), "groups/groupId", { method: 'GET' });
+// DD.AjaxConnect extend the data model with "reload" method.
+DD.Models.group.reload();
+// reload will automatically invoke Ajax call and fill the response JSON to data model
+// and finally update HTML
+```
+
+Change of HTML by Javascript
+----------------------------
+
+What about dynamically manipulating DOM tree in your own Javascript? Don't worry,
+Data-Drive uses MutationsObserver to monitor all DOM updates. It will parse all
+data-drive-xxx attributes when nodes are inserted or removed.
+
 For example:
 
 ```javascript
-// we got some data from the form and update the model  
-var person = Persons.add();
-person.name = formData["name"];
-person.birthday = formData["birthday"];
-Persons.select(person);
-// now it is time to update the views
-personListView.update();
-selectedPersonInfoView.update();
+document.getElementById("content").innerHTML = "<div data-drive-map='person'>...";
 ```
 
-We really hate the lines explicitly updating the views. We actually have the knowledge about the relationships between views and data models when we initialize the whole page. We want to that update automatically, with Data-Drive, as follow:  
+The next time you do ```DD.Models.person = ...``` will automatically refresh the
+newly added content under "#content" element. This also works with DOM node
+manipulation like "appendChild".
 
-```javascript
-// same code to update the model
-var person = Persons.add();
-person.name = formData["name"];
-person.birthday = formData["birthday"];
-Persons.select(person);
-// now, the simple statement do all updates
-Persons.update();
-```
+Compatibility
+-------------
 
-Wanna to know the magic? Look into the code. It's fairly simple.
+Data-Drive fully utilizes HTML5 and ECMAScript5 features, so only modern browers
+are supported. The listed browsers are tested:
 
-And secondly, we feel uncomfortable that we have to develop the UI using Javascript every time. As UI changes frequently, using Javascript to generate HTML dynamically introduces a lot of work constantly. Well, HTML is powerful enough, why shall we still stay in a non-WYSIWYG way?
-
-The Data-Drive framework brings another feature that organizes UI dynamically and automatically based on the concepts of template and data-binding. The UI is organized with pieces of HTML templates while the data can be filled in using data-binding. What's more, data-binding can also change the layout, styles, events, animations, etc, by reflecting the changes automatically from data models which are specially designed for UI structures. Then we can focus on pure HTML design, and only very little code.
-
-How to build
-------------
-
-In "src" folder, the code is splitted in several .js files. You can build to generate a single .js file including all code pieces. It is quite straight forward to build the code:
-
-1. cd into the root folder of the source tree
-2. type "./build.pl" or "perl build.pl"
-
-That's all, you will find the all-in-one .js file under the root folder of the source tree, like "data-drive-core.js".
-
-Supported Browsers
-------------------
-
-The initial version supports WebKit based browsers: Safari, Chrome. And Firefox will be in near future.
-Here are the browsers we have tested the code:
 * Safari 5.1.6
 * Chrome 19.0
 * Firefox 12.0
 
-Some older versions should be able to work. Please notify me if you have tested with them. Thanks!
+For Internet Explorer, it goes too far away from standard. We don't have plan to
+support it. Anyway, any patches are welcome for making Data-Drive work on IE.

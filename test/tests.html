@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Data-Drive Tests</title>
+  <link rel="stylesheet" href="../deps/mocha.css" />
+  <link rel="stylesheet" href="tests.css" />
+</head>
+<body>
+  <div id="incompatible" class="warn hidden">Your browser is not supported by Data-Drive.js</div>
+  <div id="mocha"></div>
+
+  <div class="test-content">
+    <div data-drive-map="simpleBinding">
+      <span id="title">%{ $D.title }</span>
+    </div>
+  </div>
+
+  <script src="../deps/jquery.min.js"></script>
+
+  <script src="../src/dd.js/core/base.js"></script>
+  <script src="../src/dd.js/core/observer.js"></script>
+  <script src="../src/dd.js/core/model.js"></script>
+  <script src="../src/dd.js/core/dombind.js"></script>
+
+  <script src="tests.js"></script>
+
+  <script src="../deps/expect.js"></script>
+  <script src="../deps/mocha.js"></script>
+  <script>mocha.setup('bdd')</script>
+
+  <script src="test.core.base.js"></script>
+  <script src="test.core.observer.js"></script>
+  <script src="test.core.model.js"></script>
+  <script src="test.core.dombind.js"></script>
+
+  <script>mocha.run();</script>
+</body>
+</html>

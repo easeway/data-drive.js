@@ -47,7 +47,7 @@ sub merge_js {
 my $OUT_CORE = "data-drive-core.js";
 my $LIC_FILE = "LICENSE";
 my $DIR_CORE = "src/dd.js/core";
-my @SRC_CORE = ( "foundation.js", "adapter-jquery.js", "binding.js", "view.js" );
+my @SRC_CORE = ( "base.js", "observer.js", "model.js", "dombind.js" );
 
 sub main {
     my $outfh;
