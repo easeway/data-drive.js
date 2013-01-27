@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Data-drive.js by easeway</title>
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script src="javascripts/respond.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!--[if lt IE 8]>
+    <link rel="stylesheet" href="stylesheets/ie.css">
+    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+  </head>
+  <body>
+      <div id="header">
+        <nav>
+          <li class="fork"><a href="https://github.com/easeway/data-drive.js">View On GitHub</a></li>
+          <li class="downloads"><a href="https://github.com/easeway/data-drive.js/zipball/master">ZIP</a></li>
+          <li class="downloads"><a href="https://github.com/easeway/data-drive.js/tarball/master">TAR</a></li>
+          <li class="title">DOWNLOADS</li>
+        </nav>
+      </div><!-- end header -->
+
+    <div class="wrapper">
+
+      <section>
+        <div id="title">
+          <h1>Data-drive.js</h1>
+          <p>The Javascript framework updates views automatically on change of data models</p>
+          <hr>
+          <span class="credits left">Project maintained by <a href="https://github.com/easeway">easeway</a></span>
+          <span class="credits right">Hosted on GitHub Pages &mdash; Theme by <a href="http://twitter.com/#!/michigangraham">mattgraham</a></span>
+        </div>
+
+        <h1>Data-Drive Javascript Framework (DD.js)</h1>
+
+<h2>What is Data-Drive?</h2>
+
+<p>Data-Drive is a Javascript Framework which simplifies and automates the work to update the views when the associated data models are changed. With help of this framework, we can focus on either UI design, modeling, or transition (event processing), with each group of work separated clearly. Changes on UI design won't impact any other two groups of work, and vice versa.</p>
+
+<p>The short name is DD.js which is simpler.</p>
+
+<h2>The initiative</h2>
+
+<p>Normally, when developing web pages using some Javascript MVC frameworks, we need to update all related views explicitly after we update the data models.<br>
+For example:</p>
+
+<div class="highlight"><pre><span class="c1">// we got some data from the form and update the model  </span>
+<span class="kd">var</span> <span class="nx">person</span> <span class="o">=</span> <span class="nx">Persons</span><span class="p">.</span><span class="nx">add</span><span class="p">();</span>
+<span class="nx">person</span><span class="p">.</span><span class="nx">name</span> <span class="o">=</span> <span class="nx">formData</span><span class="p">[</span><span class="s2">"name"</span><span class="p">];</span>
+<span class="nx">person</span><span class="p">.</span><span class="nx">birthday</span> <span class="o">=</span> <span class="nx">formData</span><span class="p">[</span><span class="s2">"birthday"</span><span class="p">];</span>
+<span class="nx">Persons</span><span class="p">.</span><span class="nx">select</span><span class="p">(</span><span class="nx">person</span><span class="p">);</span>
+<span class="c1">// now it is time to update the views</span>
+<span class="nx">personListView</span><span class="p">.</span><span class="nx">update</span><span class="p">();</span>
+<span class="nx">selectedPersonInfoView</span><span class="p">.</span><span class="nx">update</span><span class="p">();</span>
+</pre></div>
+
+<p>We really hate the lines explicitly updating the views. We actually have the knowledge about the relationships between views and data models when we initialize the whole page. We want to that update automatically, with Data-Drive, as follow:  </p>
+
+<div class="highlight"><pre><span class="c1">// same code to update the model</span>
+<span class="kd">var</span> <span class="nx">person</span> <span class="o">=</span> <span class="nx">Persons</span><span class="p">.</span><span class="nx">add</span><span class="p">();</span>
+<span class="nx">person</span><span class="p">.</span><span class="nx">name</span> <span class="o">=</span> <span class="nx">formData</span><span class="p">[</span><span class="s2">"name"</span><span class="p">];</span>
+<span class="nx">person</span><span class="p">.</span><span class="nx">birthday</span> <span class="o">=</span> <span class="nx">formData</span><span class="p">[</span><span class="s2">"birthday"</span><span class="p">];</span>
+<span class="nx">Persons</span><span class="p">.</span><span class="nx">select</span><span class="p">(</span><span class="nx">person</span><span class="p">);</span>
+<span class="c1">// now, the simple statement do all updates</span>
+<span class="nx">Persons</span><span class="p">.</span><span class="nx">update</span><span class="p">();</span>
+</pre></div>
+
+<p>Wanna to know the magic? Look into the code. It's fairly simple.</p>
+
+<p>And secondly, we feel uncomfortable that we have to develop the UI using Javascript every time. As UI changes frequently, using Javascript to generate HTML dynamically introduces a lot of work constantly. Well, HTML is powerful enough, why shall we still stay in a non-WYSIWYG way?</p>
+
+<p>The Data-Drive framework brings another feature that organizes UI dynamically and automatically based on the concepts of template and data-binding. The UI is organized with pieces of HTML templates while the data can be filled in using data-binding. What's more, data-binding can also change the layout, styles, events, animations, etc, by reflecting the changes automatically from data models which are specially designed for UI structures. Then we can focus on pure HTML design, and only very little code.</p>
+
+<h2>How to build</h2>
+
+<p>In "src" folder, the code is splitted in several .js files. You can build to generate a single .js file including all code pieces. It is quite straight forward to build the code:</p>
+
+<ol>
+<li>cd into the root folder of the source tree</li>
+<li>type "./build.pl" or "perl build.pl"</li>
+</ol><p>That's all, you will find the all-in-one .js file under the root folder of the source tree, like "data-drive-core.js".</p>
+
+<h2>Supported Browsers</h2>
+
+<p>The initial version supports WebKit based browsers: Safari, Chrome. And Firefox will be in near future.
+Here are the browsers we have tested the code:</p>
+
+<ul>
+<li>Safari 5.1.6</li>
+<li>Chrome 19.0</li>
+<li>Firefox 12.0</li>
+</ul><p>Some older versions should be able to work. Please notify me if you have tested with them. Thanks!</p>
+      </section>
+
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
+  </body>
+</html>
