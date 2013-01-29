@@ -67,8 +67,13 @@
                 this.valueRev ++;
             }
             if (notification) {
+                notification.data = this;
                 this.notify(notification);
             }
+        },
+
+        refresh: function () {
+            this.notify({ change: 'update', refresh: true, data: this });
         }
     });
 
@@ -130,57 +135,38 @@
         },
 
         update: function (index, items) {
-            if (items && !Array.isArray) {
+            if (items && !Array.isArray(items)) {
                 items = [items];
             }
             if (Array.isArray(items) && items.length > 0) {
-                var inserts = [], insIndex = null, insOff;
-                var removes = [], remIndex = null, remOff;
                 var updates = [], updIndex = null, updOff;
                 for (var n in items) {
                     var i = parseInt(n);
                     if (isNaN(i)) continue;
                     var item = this.at(i + index);
-                    if (item && items[n] == undefined) {
-                        if (remIndex == null) {
-                            remIndex = index + i;
-                            remOff = i;
-                        }
-                        removes[i - remOff] = item;
+                    if (item == undefined && items[n] == undefined) continue;
+
+                    if (updIndex == null) {
+                        updIndex = index + i;
+                        updOff = i;
+                    }
+                    if (items[n] == undefined) {
                         delete this.items[i + index];
-                    } else if (item == undefined && items[n]) {
-                        if (insIndex == null) {
-                            insIndex = index + i;
-                            insOff = i;
-                        }
+                    } else if (item == undefined) {
                         var v = Type.createValue(this.itemType);
                         v.value = items[n];
                         this.items[i + index] = v;
-                        inserts[i - insOff] = v;
-                    } else if (item) {
-                        if (updIndex == null) {
-                            updIndex = index + i
-                            updOff = i;
-                        }
+                    } else {
                         item.value = items[n];
-                        updates[i - updOff] = item;
                     }
+                    updates[i - updOff] = this.items[i + index];
                 }
-                if (insIndex || remIndex || updIndex) {
+                if (updIndex) {
                     this.flush({
                         change: 'items',
-                        inserts: {
-                            index: insIndex,
-                            items: inserts
-                        },
-                        removes: {
-                            index: remIndex,
-                            items: removes
-                        },
-                        updates: {
-                            index: updIndex,
-                            items: updates
-                        }
+                        op: 'update',
+                        index: updIndex,
+                        items: updates
                     });
                 }
             }
@@ -188,11 +174,15 @@
         },
 
         insert: function (index, items) {
+            if (items && !Array.isArray(items)) {
+                items = [items];
+            }
             if (Array.isArray(items) && items.length > 0) {
                 var values = this._createItems(items);
                 this.items.splice.apply(this.items, [index, 0].concat(values));
                 this.flush({
-                    change: 'insert',
+                    change: 'items',
+                    op: 'insert',
                     index: index,
                     items: values
                 });
@@ -205,7 +195,8 @@
             else if (count < 0) count = this.items.length - index;
             var values = this.items.splice(index, count);
             this.flush({
-                change: 'remove',
+                change: 'items',
+                op: 'remove',
                 index: index,
                 items: values
             });

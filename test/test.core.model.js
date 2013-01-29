@@ -70,7 +70,8 @@ describe("DD/core", function () {
             listModel.items.insert(1, adds);
             expect(listModel.items.value).to.eql([17, 45, 65, 58, 68]);
             expect(changes.length).to.eql(1);
-            expect(changes[0].change).to.eql('insert');
+            expect(changes[0].change).to.eql('items');
+            expect(changes[0].op).to.eql('insert');
             expect(changes[0].index).to.eql(1);
             expect(changes[0].items.length).to.eql(2);
             for (var i = 0; i < changes[0].items.length; i ++) {
@@ -84,10 +85,11 @@ describe("DD/core", function () {
             listener.listen(listModel.items);
             listModel.items.remove(1, 2);
             expect(listModel.items.value).to.eql([17, 87, 99, 103, 106, 109]);
-            expect(changes.length).to.eql(1);
-            expect(changes[0].change).to.eql('remove');
+            expect(changes).to.have.length(1);
+            expect(changes[0].change).to.eql('items');
+            expect(changes[0].op).to.eql('remove');
             expect(changes[0].index).to.eql(1);
-            expect(changes[0].items.length).to.eql(2);
+            expect(changes[0].items).to.have.length(2);
             var rems = [58, 68];
             for (var i = 0; i < changes[0].items.length; i ++) {
                 expect(changes[0].items[i]).to.be.a(DD.Scalar);
@@ -96,20 +98,21 @@ describe("DD/core", function () {
 
             listModel.items.remove(0);
             expect(listModel.items.value).to.eql([87, 99, 103, 106, 109]);
-            expect(changes.length).to.eql(2);
-            expect(changes[1].change).to.eql('remove');
+            expect(changes).to.have.length(2);
+            expect(changes[1].change).to.eql('items');
+            expect(changes[1].op).to.eql('remove');
             expect(changes[1].index).to.eql(0);
-            expect(changes[1].items.length).to.eql(1);
+            expect(changes[1].items).to.have.length(1);
 
             listModel.items.remove(2, -1);
             expect(listModel.items.value).to.eql([87, 99]);
             expect(changes.length).to.eql(3);
-            expect(changes[2].items.length).to.eql(3);
+            expect(changes[2].items).to.have.length(3);
 
             listModel.items.remove(0, 10);
             expect(listModel.items.value).to.eql([]);
             expect(changes.length).to.eql(4);
-            expect(changes[3].items.length).to.eql(2);
+            expect(changes[3].items).to.have.length(2);
         });
 
         it("#update", function () {
@@ -122,19 +125,17 @@ describe("DD/core", function () {
             expect(listModel.items.value).to.eql([, 3, 6, 7, 8, 5]);
             expect(changes.length).to.eql(1);
             expect(changes[0].change).to.eql('items');
-            expect(changes[0].inserts.index).to.eql(1);
-            expect(changes[0].inserts.items.length).to.eql(4);
-            expect(changes[0].inserts.items[1]).to.be(undefined);
-            expect(changes[0].removes.items.length).to.eql(0);
-            expect(changes[0].updates.index).to.eql(2);
-            expect(changes[0].updates.items.length).to.eql(1);
+            expect(changes[0].op).to.eql('update');
+            expect(changes[0].index).to.eql(1);
+            expect(changes[0].items).to.have.length(4);
             listModel.items.update(2, [, , 4]);
             expect(listModel.items.value).to.eql([, 3, 6, 7, 4, 5]);
+            expect(changes[1].index).to.eql(4);
+            expect(changes[1].items).to.have.length(1);
             listModel.items.update(1, [undefined, 9]);
             expect(listModel.items.value).to.eql([, , 9, 7, 4, 5]);
-            expect(changes.length).to.eql(3);
-            expect(changes[2].removes.index).to.eql(1);
-            expect(changes[2].removes.items.length).to.eql(1);
+            expect(changes[2].index).to.eql(1);
+            expect(changes[2].items).to.have.length(2);
         });
     });
 
@@ -158,10 +159,14 @@ describe("DD/core", function () {
             listener.listen(vName);
             m.name = "DD";
             expect(m.name).to.eql("DD");
-            expect(changes).to.eql([{ change: 'update', oldVal: null, newVal: "DD"}]);
+            expect(changes[0].change).to.eql('update');
+            expect(changes[0].oldVal).to.be(null);
+            expect(changes[0].newVal).to.eql("DD");
             listener.listen(vEmails);
             m.emails = ["test@dd"];
-            expect(changes[1]).to.eql({change: 'update', oldVal: [], newVal: ["test@dd"]});
+            expect(changes[1].change).to.eql('update');
+            expect(changes[1].oldVal).to.eql([]);
+            expect(changes[1].newVal).to.eql(["test@dd"]);
             expect(m.emails).to.be.a(DD.List);
             expect(m.emails.length).to.eql(1);
             expect(m.emails.valAt(0)).to.eql("test@dd");
