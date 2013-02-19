@@ -8,7 +8,7 @@
     exports.TestScope = {};
 }(window);
 
-describe("DD/core", function () {
+describe("core.dombind", function () {
     describe("Scoped binding", function () {
         var itemSchema = new DD.Schema({
             id: DD.Types.Scalar,

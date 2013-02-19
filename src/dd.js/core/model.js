@@ -1,9 +1,10 @@
-// Copyright (c) 2012, Yisui Hu <easeway@gmail.com>
+// Copyright (c) 2013, Yisui Hu <easeway@gmail.com>
 // All rights reserved.
 // -----------------------------------------------------------------------------
 
 //# require base
 //# require observer
+//# require extensions
 
 !function (DD) {
     "use strict";
@@ -224,9 +225,11 @@
             Value.prototype.constructor.call(this);
             this._properties = {};
             if (schema instanceof Schema) {
+                this._schema = schema;
                 for (var key in schema.descriptor) {
                     this.define(key, schema.descriptor[key]);
                 }
+                schema.modelCreated(this);
             }
         },
 
@@ -257,7 +260,8 @@
         getVal: function () {
             var val = {};
             for (name in this._properties) {
-                val[name] = this._properties[name].value;
+                var key = this._schema ? this._schema.mapName(name) : name;
+                val[key] = this._properties[name].value;
             }
             return val;
         },
@@ -265,7 +269,8 @@
         setVal: function (data) {
             var val = {};
             for (name in this._properties) {
-                val[name] = this._properties[name].value = data[name];
+                var key = this._schema ? this._schema.mapName(name) : name;
+                val[key] = this._properties[name].value = data[key];
             }
             return val;
         }
@@ -294,12 +299,23 @@
     };
 
     var Schema = DD.defClass(Type, {
-        constructor: function (descriptor) {
+        constructor: function (descriptor, options) {
             this.descriptor = descriptor;
+            this.options = options || {};
+            this.nameMap = options && options.mappings ? options.mappings : {};
+            DD.extensions.use("Schema", "options")(options, this);
         },
 
         createValue: function () {
             return new Model(this);
+        },
+        
+        modelCreated: function (model) {
+            DD.extensions.use("Schema", "modeling")(model, this);
+        },
+        
+        mapName: function (name) {
+            return this.nameMap[name] == undefined ? name : this.nameMap[name];
         }
     });
 

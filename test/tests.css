@@ -23,6 +23,16 @@ body {
     padding: 1px 10px;
 }
 
+#noajax {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: auto;
+    height: 20px;
+    z-index: 100;
+    padding: 1px 10px;
+}
+
 .test-content {
     display: none;
 }

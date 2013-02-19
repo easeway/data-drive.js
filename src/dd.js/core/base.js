@@ -1,4 +1,4 @@
-// Copyright (c) 2012, Yisui Hu <easeway@gmail.com>
+// Copyright (c) 2013, Yisui Hu <easeway@gmail.com>
 // All rights reserved.
 // -----------------------------------------------------------------------------
 
@@ -84,7 +84,12 @@
 
     DD.compatibility = new Compatibility();
 
-    DD.settings = { on: {}, off: {} };
+    var exported = exports.DataDrive || exports.DD;
+    if (exported && exported.settings) {
+        DD.settings = exported.settings;
+    } else {
+        DD.settings = {};
+    }
 
     exports.DataDrive = exports.DD = DD;
 }(window);

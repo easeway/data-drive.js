@@ -1,4 +1,4 @@
-describe("DD/core", function () {
+describe("core.base", function () {
     describe("DD.defClass", function () {
         var results = {};
 

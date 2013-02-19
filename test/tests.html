@@ -8,6 +8,7 @@
 </head>
 <body>
   <div id="incompatible" class="warn hidden">Your browser is not supported by Data-Drive.js</div>
+  <div id="noajax" class="warn hidden">Tests not loaded in web server, Ajax related tests disabled.</div>
   <div id="mocha"></div>
 
   <div class="test-content">
@@ -20,8 +21,10 @@
 
   <script src="../src/dd.js/core/base.js"></script>
   <script src="../src/dd.js/core/observer.js"></script>
+  <script src="../src/dd.js/core/extensions.js"></script>
   <script src="../src/dd.js/core/model.js"></script>
   <script src="../src/dd.js/core/dombind.js"></script>
+  <script src="../src/dd.js/extra/ajaxconnect.js"></script>
 
   <script src="tests.js"></script>
 
@@ -31,8 +34,10 @@
 
   <script src="test.core.base.js"></script>
   <script src="test.core.observer.js"></script>
+  <script src="test.core.extensions.js"></script>
   <script src="test.core.model.js"></script>
   <script src="test.core.dombind.js"></script>
+  <script src="test.extra.ajaxconnect.js"></script>
 
   <script>mocha.run();</script>
 </body>

@@ -1,4 +1,4 @@
-describe("DD/core", function () {
+describe("core.model", function () {
     var listener, changes;
 
     beforeEach(function () {
