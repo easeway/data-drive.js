@@ -23,7 +23,16 @@ describe("extra.ajaxconnect", function () {
         });
     }
 
-    var tests = function () {
+    function withAjax() {
+        var self = this;
+        return isAjaxAvailable() ? {
+            describe: function () { return describe.apply(self, arguments); }
+        } : {
+            describe: function () { return describe.skip.apply(self, arguments); }
+        };
+    }
+
+    withAjax().describe("AjaxConnect", function () {
         it("connect simple model", function (done) {
             var m = simpleSchema.createValue();
             DD.AjaxConnect(m, "sample.json");
@@ -50,11 +59,31 @@ describe("extra.ajaxconnect", function () {
                 expect(this.email).to.eql(data.email);
             }, done);
         });
-    };
-
-    if (isAjaxAvailable()) {
-        describe("AjaxConnect", tests);
-    } else {
-        describe.skip("AjaxConnect", tests);
-    }
+        
+        it("support custom modelUpdate", function (done) {
+            var m = simpleSchema.createValue();
+            DD.AjaxConnect(m, "sample.json", {
+                modelUpdate: function (data) {
+                    this.email = data.email + '-modified';
+                }
+            });
+            verifyModelReload(m, function (data) {
+                expect(this.name).to.be(null);
+                expect(this.email).to.eql(data.email + '-modified');
+            }, done);
+        });
+        
+        it("support dataConvert", function (done) {
+            var m = simpleSchema.createValue();
+            DD.AjaxConnect(m, "sample.json", {
+                dataConvert: function (data) {
+                    return { name: data.email, email: data.name };
+                }
+            });
+            verifyModelReload(m, function (data) {
+                expect(this.name).to.eql(data.email);
+                expect(this.email).to.eql(data.name);
+            }, done);
+        });
+    });
 });

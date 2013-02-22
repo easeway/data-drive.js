@@ -29,6 +29,8 @@
 
 
 !function (exports) {
+    "use strict";
+
     var DD = {
         VERSION: "2.0.0"
     };
@@ -197,6 +199,8 @@
 //# require base
 
 !function (DD) {
+    "use strict";
+
     function callExtension(fn, ext, args, value) {
         var params = [].slice.call(args, 0);
         params.push(value);
@@ -260,26 +264,28 @@
     var Value = DD.defClass(DD.Observer, {
         constructor: function () {
             DD.Observer.prototype.constructor.call(this);
-            this.caching = false;
-            this.cachedRev = null;
-            this.cachedVal = null;
-            this.valueRev = 0;
+            this.__s = {
+                caching: false,
+                cachedRev: null,
+                cachedVal: null,
+                valueRev: 0
+            }
         },
 
         get value () {
-            if (!this.caching) {
+            if (!this.__s.caching) {
                 return this.getVal();
             }
-            if (this.cachedRev === this.valueRev) {
-                return this.cachedVal;
+            if (this.__s.cachedRev === this.__s.valueRev) {
+                return this.__s.cachedVal;
             }
-            this.cachedVal = this.getVal();
-            this.cachedRev = this.valueRev;
-            return this.cachedVal;
+            this.__s.cachedVal = this.getVal();
+            this.__s.cachedRev = this.__s.valueRev;
+            return this.__s.cachedVal;
         },
 
         set value (val) {
-            var oldVal = this.getVal();
+            var oldVal = this.value;
             var newVal = this.setVal(val);
             this.flush({ change: 'update', oldVal: oldVal, newVal: newVal });
         },
@@ -311,9 +317,9 @@
         },
 
         flush: function (notification) {
-            if (this.caching) {
-                this.cachedVal = null;
-                this.valueRev ++;
+            if (this.__s.caching) {
+                this.__s.cachedVal = null;
+                this.__s.valueRev ++;
             }
             if (notification) {
                 notification.data = this;
@@ -499,6 +505,7 @@
                 }
             });
             this._properties[name] = v;
+            return v;
         },
 
         findProperty: function (name) {
@@ -518,7 +525,7 @@
             var val = {};
             for (name in this._properties) {
                 var key = this._schema ? this._schema.mapName(name) : name;
-                val[key] = this._properties[name].value = data[key];
+                val[key] = this._properties[name].value = data ? data[key] : null;
             }
             return val;
         }
@@ -592,13 +599,13 @@
         },
 
         register: function (name, type) {
-            var oldVal = this.findProperty(name);
-            if (!oldVal) {
-                this.define(name, type);
+            var val = this._properties[name];
+            if (val) {
+                val = this._properties[name] = Type.createValue(type);
             } else {
-                this._properties[name] = Type.createValue(type);
+                val = this.define(name, type);
             }
-            return oldVal;
+            return val;
         }
     });
 
@@ -619,6 +626,7 @@
     var BINDING_PROP = "__dd_binding";
     var ATTR_MAP  = "data-drive-map";
     var ATTR_ON   = "data-drive-on";
+    var ATTR_OPTS = "data-drive-opts";
     var ATTR_LIST = "data-drive-list";
     var SUBST_REGEX = /%\{[^\}]+\}/g;
 
@@ -665,8 +673,10 @@
         constructor: function (root, dataRoot, params) {
             DD.Listener.prototype.constructor.call(this);
 
+            this.root = root;
             this.element = params.element;
             this.node = params.node;
+            this.options = params.options || {};
 
             // create handlers for data change
             this.handlers = [];
@@ -789,9 +799,20 @@
                     if (count == 0) {
                         params.changes = null;
                     }
+                } else {
+                    params.script = buildFunction(attr.value);
+                    params.changes = null;
                 }
-                params.script = buildFunction(attr.value);
                 params.node = node;
+            }
+            if ((attr = node.attributes.getNamedItem(ATTR_OPTS))) {
+                params.options = attr.value.split(';').reduce(function (result, item) {
+                    var i = item.indexOf(':');
+                    if (i > 0) {
+                        result[item.substr(0, i).trim()] = item.substr(i + 1).trim();
+                    }
+                    return result;
+                }, {});
             }
             if ((attr = node.attributes.getNamedItem(ATTR_LIST))) {
                 params.listFactory = buildStatement(attr.value);
@@ -826,7 +847,7 @@
         }
         return null;
     };
-
+  
     // List factories
     var ListFactory = DD.defClass({
         constructor: function (binding) {
@@ -961,12 +982,17 @@
             }, this);
         }
     });
-
-    var InlineListFactory = DD.defClass(ListFactory, {
+    
+    var TemplateListFactory = DD.defClass(ListFactory, {
         constructor: function (binding) {
             ListFactory.prototype.constructor.call(this, binding);
 
-            var children = this.container.childNodes;
+            var template = this.container;
+            if (binding.options.item) {
+                template = jQuery(binding.root).find(binding.options.item)[0];
+            }
+            
+            var children = template ? template.childNodes : [];
             this.nodesTemplate = [];
             for (var i = 0; i < children.length; i ++) {
                 this.nodesTemplate.push(children[i]);
@@ -976,8 +1002,7 @@
     });
 
     function autoSelectListFactory(binding) {
-        // TODO auto detect table, ul, div, etc.
-        return new InlineListFactory(binding);
+        return new TemplateListFactory(binding);
     }
 
     function unbindNode(node) {
@@ -1100,14 +1125,14 @@
     });
 
     DD.ListFactory = ListFactory;
-    DD.InlineListFactory = InlineListFactory;
+    DD.TemplateListFactory = TemplateListFactory;
     DD.BindingScope = BindingScope;
 
-    if (DD.settings.autobind != false && DOMObserverClass) {
-        document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener("DOMContentLoaded", function () {
+        if (DD.settings.autobind != false && DOMObserverClass) {
             new BindingScope().bind();
-        });
-    }
+        }
+    });
 }(DataDrive);
 
 // ajaxconnect.js
@@ -1116,11 +1141,24 @@
 // Depeneds on jQuery
 
 !function (DD) {
+    "use strict";
+
     var AjaxConnect = function (model, url, ajaxOpts) {
         var settings = jQuery.extend({ accepts: 'application/json' }, ajaxOpts || {});
         var successHandler = settings.success;
+        var modelUpdate = settings.modelUpdate;
+        var dataConvert = settings.dataConvert;
+        delete settings.modelUpdate;
+        delete settings.dataConvert;
         settings.success = function (data) {
-            model.setVal(data);
+            if (typeof(modelUpdate) == 'function') {
+                modelUpdate.call(model, data);
+            } else {
+                if (typeof(dataConvert) == 'function') {
+                    data = dataConvert(data);
+                }
+                model.value = data;
+            }
             if (typeof(successHandler) == 'function') {
                 successHandler.apply(this, arguments);
             }
@@ -1133,6 +1171,7 @@
     
     DD.AjaxConnect = AjaxConnect;
     
+    // Connect extension point
     DD.extensions.connect("Schema", {
         modeling: function (model, schema) {
             if (schema.options.ajax && schema.options.ajax.url) {
@@ -1140,5 +1179,10 @@
             }
         }
     });
+    
+    // Extend Model prototype
+    DD.Value.prototype.ajax = function (url, opts) {
+        return AjaxConnect(this, url, opts);
+    };
 }(DataDrive);
 

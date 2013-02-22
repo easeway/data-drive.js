@@ -12,26 +12,28 @@
     var Value = DD.defClass(DD.Observer, {
         constructor: function () {
             DD.Observer.prototype.constructor.call(this);
-            this.caching = false;
-            this.cachedRev = null;
-            this.cachedVal = null;
-            this.valueRev = 0;
+            this.__s = {
+                caching: false,
+                cachedRev: null,
+                cachedVal: null,
+                valueRev: 0
+            }
         },
 
         get value () {
-            if (!this.caching) {
+            if (!this.__s.caching) {
                 return this.getVal();
             }
-            if (this.cachedRev === this.valueRev) {
-                return this.cachedVal;
+            if (this.__s.cachedRev === this.__s.valueRev) {
+                return this.__s.cachedVal;
             }
-            this.cachedVal = this.getVal();
-            this.cachedRev = this.valueRev;
-            return this.cachedVal;
+            this.__s.cachedVal = this.getVal();
+            this.__s.cachedRev = this.__s.valueRev;
+            return this.__s.cachedVal;
         },
 
         set value (val) {
-            var oldVal = this.getVal();
+            var oldVal = this.value;
             var newVal = this.setVal(val);
             this.flush({ change: 'update', oldVal: oldVal, newVal: newVal });
         },
@@ -63,9 +65,9 @@
         },
 
         flush: function (notification) {
-            if (this.caching) {
-                this.cachedVal = null;
-                this.valueRev ++;
+            if (this.__s.caching) {
+                this.__s.cachedVal = null;
+                this.__s.valueRev ++;
             }
             if (notification) {
                 notification.data = this;
@@ -251,6 +253,7 @@
                 }
             });
             this._properties[name] = v;
+            return v;
         },
 
         findProperty: function (name) {
@@ -270,7 +273,7 @@
             var val = {};
             for (name in this._properties) {
                 var key = this._schema ? this._schema.mapName(name) : name;
-                val[key] = this._properties[name].value = data[key];
+                val[key] = this._properties[name].value = data ? data[key] : null;
             }
             return val;
         }
@@ -344,13 +347,13 @@
         },
 
         register: function (name, type) {
-            var oldVal = this.findProperty(name);
-            if (!oldVal) {
-                this.define(name, type);
+            var val = this._properties[name];
+            if (val) {
+                val = this._properties[name] = Type.createValue(type);
             } else {
-                this._properties[name] = Type.createValue(type);
+                val = this.define(name, type);
             }
-            return oldVal;
+            return val;
         }
     });
 

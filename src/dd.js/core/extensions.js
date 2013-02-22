@@ -5,6 +5,8 @@
 //# require base
 
 !function (DD) {
+    "use strict";
+
     function callExtension(fn, ext, args, value) {
         var params = [].slice.call(args, 0);
         params.push(value);
