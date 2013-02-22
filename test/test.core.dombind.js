@@ -10,9 +10,16 @@
 
 describe("core.dombind", function () {
     describe("Scoped binding", function () {
+        var addrSchema = new DD.Schema({
+            street: DD.Types.Scalar,
+            pobox: DD.Types.Scalar
+        });
+        
         var itemSchema = new DD.Schema({
             id: DD.Types.Scalar,
-            name: DD.Types.Scalar
+            name: DD.Types.Scalar,
+            emails: [DD.Types.Scalar],
+            addr: addrSchema
         });
 
         var bindingSchema = new DD.Schema({
@@ -126,33 +133,34 @@ describe("core.dombind", function () {
             this.timeout(200);
 
             scope.bind();
-            container.innerHTML = "<div data-drive-map='simple.items'><div>Id: %{ $D.id }, Name: %{ $D.name }</div></div>";
+            container.innerHTML = "<div data-drive-map='simple.items'><div>Id: %{ $D.id }, Name: %{ $D.name }</div><div>%{ $D.id + 1 }</div></div>";
             var elem = $(container).find("div")[0];
             var items = models.query("simple.items");
             withBinding(function () { return elem; }, done).go(function () {
                 items.value = [{ id: 1, name: "a1" }, { id: 2, name: "a2" }];
                 var nodes = elem.childNodes;
-                expect(nodes.length).to.eql(2);
+                expect(nodes.length).to.eql(4);
                 expect(nodes[0].innerHTML).to.eql("Id: 1, Name: a1");
-                expect(nodes[1].innerHTML).to.eql("Id: 2, Name: a2");
+                expect(nodes[1].innerHTML).to.eql("2");
+                expect(nodes[2].innerHTML).to.eql("Id: 2, Name: a2");
 
                 items.at(1).name = "a2x";
-                expect(nodes[1].innerHTML).to.eql("Id: 2, Name: a2x");
+                expect(nodes[2].innerHTML).to.eql("Id: 2, Name: a2x");
 
                 nodes[0].__test_ver = 0;
-                nodes[1].__test_ver = 0;
+                nodes[2].__test_ver = 0;
                 items.insert(1, { id: 1.5, name: "a1.5" });
                 var children = elem.childNodes;
                 expect(children[0].__test_ver).to.eql(0);
-                expect(children[1].__test_ver).to.be(undefined);
-                expect(children[2].__test_ver).to.eql(0);
-                expect(children[1].innerHTML).to.eql("Id: 1.5, Name: a1.5");
+                expect(children[2].__test_ver).to.be(undefined);
+                expect(children[4].__test_ver).to.eql(0);
+                expect(children[2].innerHTML).to.eql("Id: 1.5, Name: a1.5");
 
                 items.remove(2, 1);
                 children = elem.childNodes;
-                expect(children.length).to.eql(2);
+                expect(children.length).to.eql(4);
                 expect(children[0].innerHTML).to.eql("Id: 1, Name: a1");
-                expect(children[1].innerHTML).to.eql("Id: 1.5, Name: a1.5");
+                expect(children[2].innerHTML).to.eql("Id: 1.5, Name: a1.5");
             });
         });
         
@@ -187,6 +195,40 @@ describe("core.dombind", function () {
                 expect(children.length).to.eql(2);
                 expect(children[0].innerHTML).to.eql("Id: 1, Name: a1");
                 expect(children[1].innerHTML).to.eql("Id: 1.5, Name: a1.5");
+            });
+        });
+        
+        it("manipulate a list with nested mapping", function (done) {
+            this.timeout(200);
+
+            scope.bind();
+            container.innerHTML = "<div data-drive-map='simple.items'><div>Id: %{ $D.id }, Name: %{ $D.name }</div><div data-drive-map='.addr'>%{ $D.pobox }@%{ $D.street }</div></div>";
+            var elem = $(container).find("div")[0];
+            var items = models.query("simple.items");
+            withBinding(function () { return elem; }, done).go(function () {
+                items.value = [{ id: 1, name: "a1", addr: { street: "A", pobox: 355 } }];
+                var nodes = elem.childNodes;
+                expect(nodes.length).to.eql(2);
+                expect(nodes[0].innerHTML).to.eql("Id: 1, Name: a1");
+                expect(nodes[1].innerHTML).to.eql("355@A");
+            });
+        });
+        
+        it("manipulate a list with nested list", function (done) {
+            this.timeout(200);
+
+            scope.bind();
+            container.innerHTML = "<div data-drive-map='simple.items'><div data-drive-map='.emails'><a>%{ $D.value }</a></div></div>";
+            var elem = $(container).find("div")[0];
+            var items = models.query("simple.items");
+            withBinding(function () { return elem; }, done).go(function () {
+                items.value = [{ id: 1, name: "a1", emails: [ "a@mailbox", "b@mailbox" ] }];
+                var nodes = elem.childNodes;
+                expect(nodes.length).to.eql(1);
+                var nodes = nodes[0].childNodes;
+                expect(nodes.length).to.eql(2);
+                expect(nodes[0].innerHTML).to.eql("a@mailbox");
+                expect(nodes[1].innerHTML).to.eql("b@mailbox");
             });
         });
     });

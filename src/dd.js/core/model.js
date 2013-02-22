@@ -73,10 +73,11 @@
                 notification.data = this;
                 this.notify(notification);
             }
+            return this;
         },
 
         refresh: function () {
-            this.notify({ change: 'update', refresh: true, data: this });
+            return this.notify({ change: 'update', refresh: true, data: this });
         }
     });
 
@@ -124,6 +125,13 @@
             throw new TypeError("items is not an Array");
         },
 
+        refresh: function () {
+            this.items.forEach(function (item) {
+                item.refresh();
+            });
+            return Value.prototype.refresh.call(this);
+        },
+        
         get length () {
             return this.items.length;
         },
@@ -262,7 +270,7 @@
 
         getVal: function () {
             var val = {};
-            for (name in this._properties) {
+            for (var name in this._properties) {
                 var key = this._schema ? this._schema.mapName(name) : name;
                 val[key] = this._properties[name].value;
             }
@@ -271,11 +279,18 @@
 
         setVal: function (data) {
             var val = {};
-            for (name in this._properties) {
+            for (var name in this._properties) {
                 var key = this._schema ? this._schema.mapName(name) : name;
                 val[key] = this._properties[name].value = data ? data[key] : null;
             }
             return val;
+        },
+        
+        refresh: function () {
+            for (var name in this._properties) {
+                this._properties[name].refresh();
+            }
+            return Value.prototype.refresh.call(this);
         }
     });
 
