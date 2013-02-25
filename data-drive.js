@@ -325,10 +325,11 @@
                 notification.data = this;
                 this.notify(notification);
             }
+            return this;
         },
 
         refresh: function () {
-            this.notify({ change: 'update', refresh: true, data: this });
+            return this.notify({ change: 'update', refresh: true, data: this });
         }
     });
 
@@ -376,6 +377,13 @@
             throw new TypeError("items is not an Array");
         },
 
+        refresh: function () {
+            this.items.forEach(function (item) {
+                item.refresh();
+            });
+            return Value.prototype.refresh.call(this);
+        },
+        
         get length () {
             return this.items.length;
         },
@@ -514,7 +522,7 @@
 
         getVal: function () {
             var val = {};
-            for (name in this._properties) {
+            for (var name in this._properties) {
                 var key = this._schema ? this._schema.mapName(name) : name;
                 val[key] = this._properties[name].value;
             }
@@ -523,11 +531,18 @@
 
         setVal: function (data) {
             var val = {};
-            for (name in this._properties) {
+            for (var name in this._properties) {
                 var key = this._schema ? this._schema.mapName(name) : name;
                 val[key] = this._properties[name].value = data ? data[key] : null;
             }
             return val;
+        },
+        
+        refresh: function () {
+            for (var name in this._properties) {
+                this._properties[name].refresh();
+            }
+            return Value.prototype.refresh.call(this);
         }
     });
 
@@ -1058,16 +1073,74 @@
     }
 
     var DOMObserverClass = window.MutationObserver;
+
     if (!DOMObserverClass) {
         DOMObserverClass = window.WebKitMutationObserver;
     }
+    
+    // Create own DOMObserver simulate with Mutation events
     if (!DOMObserverClass) {
-        console.error("Your browser doesn't support DOM MutationObserver");
+        DOMObserverClass = DD.defClass({
+            constructor: function (callback) {
+                this.callback = callback;
+                this.record = {
+                    removedNodes: [],
+                    addedNodes: []
+                };
+                var self = this;
+                this.handlerNodeUpdated = function (ev) {
+                    self.onNodeChange(self.record.addedNodes, ev);
+                };
+                this.handlerNodeRemoved = function (ev) {
+                    self.onNodeChange(self.record.removedNodes, ev);
+                };
+            },
+            
+            observe: function (element) {
+                this.disconnect();
+                
+                this.observed = element;
+                this.observed.addEventListener("DOMNodeInserted", this.handlerNodeUpdated);
+                this.observed.addEventListener("DOMNodeRemoved", this.handlerNodeRemoved);
+                this.observed.addEventListener("DOMCharacterDataModified", this.handlerNodeUpdated);
+                this.observed.addEventListener("DOMSubtreeModified", this.handlerNodeUpdated);
+                
+                return this;
+            },
+            
+            disconnect: function () {
+                if (this.observed) {
+                    this.observed.removeEventListener("DOMSubtreeModified", this.handlerNodeUpdated);
+                    this.observed.removeEventListener("DOMCharacterDataModified", this.handlerNodeUpdated);                    
+                    this.observed.removeEventListener("DOMNodeRemoved", this.handlerNodeRemoved);
+                    this.observed.removeEventListener("DOMNodeInserted", this.handlerNodeUpdated);
+                    delete this.observed;
+                }
+            },
+            
+            onNodeChange: function (changedNodes, ev) {
+                // schedule a callback if this is the first event
+                if (changedNodes.length == 0) {
+                    var self = this;
+                    setTimeout(function () {
+                        self.notifyNodeChanges();
+                    }, 0);
+                }
+                changedNodes.push(ev.target);
+                this.notifyNodeChanges();
+            },
+            
+            notifyNodeChanges: function () {
+                var record = {
+                    removedNodes: this.record.removedNodes,
+                    addedNodes: this.record.addedNodes
+                }
+                this.record.removedNodes = [];
+                this.record.addedNodes = [];
+                this.callback([record]);
+            }
+        });
     }
-
-    DD.compatibility.register("MutationObserver", function (results) {
-        return DOMObserverClass;
-    });
 
     var BindingScope = DD.defClass({
         constructor: function (node, dataRoot) {
