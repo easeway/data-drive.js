@@ -60,6 +60,7 @@
             DD.Listener.prototype.constructor.call(this);
 
             this.root = root;
+            this.dataRoot = dataRoot;
             this.element = params.element;
             this.node = params.node;
             this.options = params.options || {};
@@ -91,8 +92,9 @@
                 }
             }
 
-            // find the data source
-            if (params.dataSource && params.dataSource[0] != '.') {
+            if (params.data) {      // explicit binding
+                this.data = params.data;
+            } else if (params.dataSource && params.dataSource[0] != '.') {  // find the data source
                 this.data = dataRoot.query(params.dataSource);
             } else {
                 var data = null;
@@ -157,8 +159,11 @@
         return eval("fn = function ($C, $D, $E, $N) { return ( " + script + " ); }");
     }
 
-    Binding.create = function (node, root, dataRoot) {
+    Binding.create = function (node, root, dataRoot, opts) {
         var params = { };
+        if (opts.data) {
+            params.data = opts.data;
+        }
         if (node.nodeType == 1) {
             var attr = node.attributes.getNamedItem(ATTR_MAP);
             if (attr) {
@@ -199,9 +204,15 @@
                     }
                     return result;
                 }, {});
+                if (params.options.bind) {  // force binding
+                    params.node = node;
+                }
             }
             if ((attr = node.attributes.getNamedItem(ATTR_LIST))) {
                 params.listFactory = buildStatement(attr.value);
+            }
+            if (params.data) {
+                params.node = node;
             }
             if (params.node) {
                 params.element = node;
@@ -223,11 +234,13 @@
                 if (start < text.length) {
                     params.contents.push(text.substr(start));
                 }
+            }
+            if (count > 0 || params.data) {
                 params.node = node;
                 params.element = node.parentElement;
             }
         }
-
+        
         if (params.element) {
             return new Binding(root, dataRoot, params);
         }
@@ -329,8 +342,8 @@
                     nodes: this.createItemNodes()
                 };
                 itemView.nodes.forEach(function (node) {
-                    bindDOMTree(node, node, item, {});
-                });
+                    bindDOMTree(node, node, this.binding.dataRoot, { data: item });
+                }, this);
                 item.refresh();
                 return itemView;
             }, this);
@@ -405,7 +418,7 @@
         } else if (node[BINDING_PROP]) {
             return true;
         }
-        var binding = Binding.create(node, root, dataRoot);
+        var binding = Binding.create(node, root, dataRoot, opts);
         if (binding) {
             Object.defineProperty(node, BINDING_PROP, {
                 get: function () { return binding; },
@@ -417,16 +430,19 @@
         return false;
     }
 
-    function traverseDOMTree(node, callback) {
+    function traverseDOMTree(node, callback, level) {
+        if (level == undefined) {
+            level = 0;
+        }
         switch (node.nodeType) {
             case 1: // element
-                callback(node);
+                callback(node, level);
                 for (var i = 0; i < node.childNodes.length; i ++) {
-                    traverseDOMTree(node.childNodes[i], callback);
+                    traverseDOMTree(node.childNodes[i], callback, level + 1);
                 }
                 break;
             case 3: // characters
-                callback(node);
+                callback(node, level);
                 break;
         }
     }
@@ -438,7 +454,12 @@
     }
 
     function bindDOMTree(node, root, dataRoot, opts) {
-        traverseDOMTree(node, function (node) {
+        traverseDOMTree(node, function (node, level) {
+            // create data binding explicitly for all top-level
+            // nodes of list items, but not children
+            if (level > 0) {
+                delete opts.data;
+            }
             bindNode(node, root, dataRoot, opts);
         });
     }
@@ -554,6 +575,15 @@
             return this;
         },
 
+        findBinding: function (node) {
+            for (; node && node != this.root; node = node.parentElement) {
+                if (node[BINDING_PROP]) {
+                    return node[BINDING_PROP];
+                }
+            }
+            return null;
+        },
+        
         onMutations: function (mutations) {
             var self = this;
             mutations.forEach(function (record) {
@@ -574,7 +604,9 @@
 
     document.addEventListener("DOMContentLoaded", function () {
         if (DD.settings.autobind != false && DOMObserverClass) {
-            new BindingScope().bind();
+            var scope = new BindingScope();
+            scope.bind();
+            DD.documentScope = scope;
         }
     });
 }(DataDrive);
