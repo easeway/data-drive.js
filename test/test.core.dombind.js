@@ -254,17 +254,17 @@ describe("core.dombind", function () {
             this.timeout(200);
             
             scope.bind();
-            container.innerHTML = "<div data-drive-map='simple'><input type='text' data-drive-attr-name='$D.title.replace(\" \", \"\").toLowerCase()' data-drive-attr-value='$D.title' /></div>";
+            container.innerHTML = '<div data-drive-map="simple"><input type="text" data-drive-attr-name="%{$D.title.toLowerCase()}" data-drive-attr-value="the %{ $D.title }x" /></div>';
             var elem = container.childNodes[0];
             var input = $(container).find("input")[0];
             var m = models.query("simple");
             withBinding(function () { return elem; }, done).go(function () {
                 m.title = "Title 1";
-                expect(input.value).to.eql("Title 1");
-                expect(input.name).to.eql("title1");
+                expect(input.value).to.eql("the Title 1x");
+                expect(input.name).to.eql("title 1");
                 m.title = "Title 2";
-                expect(input.value).to.eql("Title 2");
-                expect(input.name).to.eql("title2");                
+                expect(input.value).to.eql("the Title 2x");
+                expect(input.name).to.eql("title 2");                
             });
         });
     });

@@ -15,7 +15,6 @@
     var ATTR_OPTS = "data-drive-opts";
     var ATTR_ATTR = "data-drive-attr-";
     var ATTR_LIST = "data-drive-list";
-    var SUBST_REGEX = /%\{[^\}]+\}/g;
 
     function binarySearch(array, compare, from, to) {
         if (typeof(compare) != 'function') {
@@ -72,25 +71,17 @@
 
             // create handlers for data change
             this.handlers = [];
-            if (Array.isArray(params.contents)) {
+            if (params.contents) {
                 this.contents = params.contents;
                 this.handlers.push(function (change) {
-                    var self = this;
-                    this.node.textContent = this.contents.reduce(function (text, content) {
-                        if (typeof(content) == 'function') {
-                            text += content.call(self, change, self.data, self.element, self.node);
-                        } else {
-                            text += content;
-                        }
-                        return text;
-                    }, "");
+                    this.node.textContent = this.contents.evaluate(this, change);
                 });
             } else {    // params.script should only be present for elements
                 if (params.attrs) {
                     this.attrs = params.attrs;
                     this.handlers.push(function (change) {
                         for (var key in this.attrs) {
-                            this.node.setAttribute(key, this.attrs[key].call(this, change, this.data, this.element, this.node));
+                            this.node.setAttribute(key, this.attrs[key].evaluate(this, change));
                         }
                     });
                 }
@@ -165,14 +156,74 @@
 
     function buildFunction(script) {
         var fn;
-        return eval("fn = function ($C, $D, $E, $N) { " + script + " }");
+        try {
+            return eval("fn = function ($C, $D, $E, $N) { " + script + " }");
+        } catch (e) {
+            console.error("Bad script: " + script);
+            console.error(e);
+            throw e;            
+        }
     }
 
     function buildStatement(script) {
         var fn;
-        return eval("fn = function ($C, $D, $E, $N) { return ( " + script + " ); }");
+        try {
+            return eval("fn = function ($C, $D, $E, $N) { return ( " + script + " ); }");
+        } catch (e) {
+            console.error("Bad script: " + script);
+            console.error(e);
+            throw e;
+        }
     }
 
+    var SUBST_REGEX = /%\{[^\}]+\}/g;
+    
+    var ContentTemplate = DD.defClass({
+        constructor: function (text) {
+            if (text) {
+                this.parse(text);
+            } else {
+                this.contents = [];
+            }
+        },
+        
+        parse: function (text) {
+            this.contents = [];
+            SUBST_REGEX.lastIndex = 0;
+            var start = 0, m, count = 0;
+            while ((m = SUBST_REGEX.exec(text)) != null) {
+                var scriptBegin = m.index;
+                if (scriptBegin > start) {
+                    this.contents.push(text.substr(start, scriptBegin - start));
+                }
+                start = SUBST_REGEX.lastIndex;
+                this.contents.push(buildStatement(m[0].substr(2, m[0].length - 3)));
+                count ++;
+            }
+            if (count > 0) {
+                if (start < text.length) {
+                    this.contents.push(text.substr(start));
+                }
+            }
+            return count > 0;
+        },
+        
+        get valid () {
+            return this.contents.length > 0;
+        },
+        
+        evaluate: function (binding, change) {
+            return this.contents.reduce(function (text, content) {
+                if (typeof(content) == 'function') {
+                    text += content.call(binding, change, binding.data, binding.element, binding.node);
+                } else {
+                    text += content;
+                }
+                return text;
+            }, "");
+        }
+    });
+    
     Binding.create = function (node, root, scope, opts) {
         var params = { };
         if (opts.data) {
@@ -230,12 +281,13 @@
                         break;
                     default:
                         if (attr.name.substr(0, ATTR_ATTR.length) == ATTR_ATTR) {
-                            var attrName = attr.name.substr(ATTR_ATTR.length);
-                            if (attrName.length > 0) {
+                            var attrName, contents;
+                            if ((attrName = attr.name.substr(ATTR_ATTR.length)).length > 0 &&
+                                (contents = new ContentTemplate(attr.value)).valid) {
                                 if (!params.attrs) {
                                     params.attrs = { };
                                 }
-                                params.attrs[attrName] = buildStatement(attr.value);
+                                params.attrs[attrName] = contents;
                                 params.node = node;
                             }
                         }
@@ -248,24 +300,11 @@
                 params.element = node;
             }
         } else {
-            params.contents = [];
-            SUBST_REGEX.lastIndex = 0;
-            var text = node.textContent, start = 0, m, count = 0;
-            while ((m = SUBST_REGEX.exec(text)) != null) {
-                var scriptBegin = m.index;
-                if (scriptBegin > start) {
-                    params.contents.push(text.substr(start, scriptBegin - start));
-                }
-                start = SUBST_REGEX.lastIndex;
-                params.contents.push(buildStatement(m[0].substr(2, m[0].length - 3)));
-                count ++;
+            var contents = new ContentTemplate(node.textContent);
+            if (contents.valid) {
+                params.contents = contents;
             }
-            if (count > 0) {
-                if (start < text.length) {
-                    params.contents.push(text.substr(start));
-                }
-            }
-            if (count > 0 || params.data) {
+            if (params.contents || params.data) {
                 params.node = node;
                 params.element = node.parentElement || opts.container;
             }
