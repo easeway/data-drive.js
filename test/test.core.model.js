@@ -41,6 +41,12 @@ describe("core.model", function () {
             expect(v.value).to.be(null);
         });
 
+        it("initial value as a function", function () {
+            var type = new DD.ScalarType({ initialVal: function () { return 1029; } });
+            var v = type.createValue();
+            expect(v.value).to.eql(1029);
+        });
+        
         it("default value", function () {
             var type = new DD.ScalarType({ defaultVal: "someVal" });
             var v = type.createValue();
@@ -49,6 +55,16 @@ describe("core.model", function () {
             expect(v.value).to.eql(4567);
             v.value = null;
             expect(v.value).to.eql("someVal");
+        });
+
+        it("default value as a function", function () {
+            var type = new DD.ScalarType({ defaultVal: function () { return 2091; } });
+            var v = type.createValue();
+            expect(v.value).to.eql(2091);
+            v.value = 3214;
+            expect(v.value).to.eql(3214);
+            v.value = null;
+            expect(v.value).to.eql(2091);
         });
         
         it("initial value is not default value", function () {

@@ -32,7 +32,7 @@
     "use strict";
 
     var DD = {
-        VERSION: "2.0.0"
+        VERSION: "2.1.0"
     };
 
     DD.defClass = function (base, proto) {
@@ -333,18 +333,26 @@
         }
     });
 
+    function valueOrFunction (val) {
+        if (typeof(val) == 'function') {
+            return val();
+        }
+        return val;
+    }
+    
     var Scalar = DD.defClass(Value, {
-        constructor: function () {
+        constructor: function (defaultVal, initialVal) {
             Value.prototype.constructor.call(this);
-            this._value = null;
+            this.__s.defaultVal = defaultVal == undefined ? null : defaultVal;
+            this.__s.value = valueOrFunction(initialVal == undefined ? this.__s.defaultVal : initialVal);
         },
 
         getVal: function () {
-            return this._value;
+            return this.__s.value;
         },
 
         setVal: function (val) {
-            return this._value = val;
+            return this.__s.value = (val == undefined || val == null) ? valueOrFunction(this.__s.defaultVal) : val;
         }
     });
 
@@ -590,8 +598,17 @@
     });
 
     var ScalarType = DD.defClass(Type, {
+        constructor: function (options) {
+            if (options && options.initialVal) {
+                this.initialVal = options.initialVal;
+            }
+            if (options && options.defaultVal) {
+                this.defaultVal = options.defaultVal;
+            }
+        },
+        
         createValue: function () {
-            return new Scalar();
+            return new Scalar(this.defaultVal, this.initialVal);
         }
     });
 
@@ -642,8 +659,8 @@
     var ATTR_MAP  = "data-drive-map";
     var ATTR_ON   = "data-drive-on";
     var ATTR_OPTS = "data-drive-opts";
+    var ATTR_ATTR = "data-drive-attr-";
     var ATTR_LIST = "data-drive-list";
-    var SUBST_REGEX = /%\{[^\}]+\}/g;
 
     function binarySearch(array, compare, from, to) {
         if (typeof(compare) != 'function') {
@@ -700,20 +717,20 @@
 
             // create handlers for data change
             this.handlers = [];
-            if (Array.isArray(params.contents)) {
+            if (params.contents) {
                 this.contents = params.contents;
                 this.handlers.push(function (change) {
-                    var self = this;
-                    this.node.textContent = this.contents.reduce(function (text, content) {
-                        if (typeof(content) == 'function') {
-                            text += content.call(self, change, self.data, self.element, self.node);
-                        } else {
-                            text += content;
-                        }
-                        return text;
-                    }, "");
+                    this.node.textContent = this.contents.evaluate(this, change);
                 });
             } else {    // params.script should only be present for elements
+                if (params.attrs) {
+                    this.attrs = params.attrs;
+                    this.handlers.push(function (change) {
+                        for (var key in this.attrs) {
+                            this.node.setAttribute(key, this.attrs[key].evaluate(this, change));
+                        }
+                    });
+                }
                 if (typeof(params.script) == 'function') {
                     this.script = params.script;
                     this.changes = params.changes;
@@ -785,65 +802,142 @@
 
     function buildFunction(script) {
         var fn;
-        return eval("fn = function ($C, $D, $E, $N) { " + script + " }");
+        try {
+            return eval("fn = function ($C, $D, $E, $N) { " + script + " }");
+        } catch (e) {
+            console.error("Bad script: " + script);
+            console.error(e);
+            throw e;            
+        }
     }
 
     function buildStatement(script) {
         var fn;
-        return eval("fn = function ($C, $D, $E, $N) { return ( " + script + " ); }");
+        try {
+            return eval("fn = function ($C, $D, $E, $N) { return ( " + script + " ); }");
+        } catch (e) {
+            console.error("Bad script: " + script);
+            console.error(e);
+            throw e;
+        }
     }
 
+    var SUBST_REGEX = /%\{[^\}]+\}/g;
+    
+    var ContentTemplate = DD.defClass({
+        constructor: function (text) {
+            if (text) {
+                this.parse(text);
+            } else {
+                this.contents = [];
+            }
+        },
+        
+        parse: function (text) {
+            this.contents = [];
+            SUBST_REGEX.lastIndex = 0;
+            var start = 0, m, count = 0;
+            while ((m = SUBST_REGEX.exec(text)) != null) {
+                var scriptBegin = m.index;
+                if (scriptBegin > start) {
+                    this.contents.push(text.substr(start, scriptBegin - start));
+                }
+                start = SUBST_REGEX.lastIndex;
+                this.contents.push(buildStatement(m[0].substr(2, m[0].length - 3)));
+                count ++;
+            }
+            if (count > 0) {
+                if (start < text.length) {
+                    this.contents.push(text.substr(start));
+                }
+            }
+            return count > 0;
+        },
+        
+        get valid () {
+            return this.contents.length > 0;
+        },
+        
+        evaluate: function (binding, change) {
+            return this.contents.reduce(function (text, content) {
+                if (typeof(content) == 'function') {
+                    text += content.call(binding, change, binding.data, binding.element, binding.node);
+                } else {
+                    text += content;
+                }
+                return text;
+            }, "");
+        }
+    });
+    
     Binding.create = function (node, root, scope, opts) {
         var params = { };
         if (opts.data) {
             params.data = opts.data;
         }
         if (node.nodeType == 1) {
-            var attr = node.attributes.getNamedItem(ATTR_MAP);
-            if (attr) {
-                params.dataSource = attr.value.trim();
-                params.node = node;
-            }
-            if ((attr = node.attributes.getNamedItem(ATTR_ON))) {
-                var i = attr.value.indexOf(':');
-                if (i >= 0) {
-                    params.script = buildFunction(attr.value.substr(i + 1));
-                    params.changes = {};
-                    var changes = attr.value.substr(0, i).split(',');
-                    var count = 0;
-                    for (var i = 0; i < changes.length; i ++) {
-                        var name = changes[i].trim();
-                        if (name === "*") {
+            for (var n = 0; n < node.attributes.length; n ++) {
+                var attr = node.attributes[n];
+                switch (attr.name) {
+                    case ATTR_MAP:
+                        params.dataSource = attr.value.trim();
+                        params.node = node;
+                        break;
+                    case ATTR_ON: {
+                        var i = attr.value.indexOf(':');
+                        if (i >= 0) {
+                            params.script = buildFunction(attr.value.substr(i + 1));
+                            params.changes = {};
+                            var changes = attr.value.substr(0, i).split(',');
+                            var count = 0;
+                            for (var i = 0; i < changes.length; i ++) {
+                                var name = changes[i].trim();
+                                if (name === "*") {
+                                    params.changes = null;
+                                    break;
+                                } else if (name != "") {
+                                    params.changes[name] = true;
+                                    count ++;
+                                }
+                            }
+                            if (count == 0) {
+                                params.changes = null;
+                            }
+                        } else {
+                            params.script = buildFunction(attr.value);
                             params.changes = null;
-                            break;
-                        } else if (name != "") {
-                            params.changes[name] = true;
-                            count ++;
                         }
+                        params.node = node;
+                        break;
                     }
-                    if (count == 0) {
-                        params.changes = null;
-                    }
-                } else {
-                    params.script = buildFunction(attr.value);
-                    params.changes = null;
+                    case ATTR_OPTS:
+                        params.options = attr.value.split(';').reduce(function (result, item) {
+                            var i = item.indexOf(':');
+                            if (i > 0) {
+                                result[item.substr(0, i).trim()] = item.substr(i + 1).trim();
+                            }
+                            return result;
+                        }, {});
+                        if (params.options.bind) {  // force binding
+                            params.node = node;
+                        }
+                        break;
+                    case ATTR_LIST:
+                        params.listFactory = buildStatement(attr.value);
+                        break;
+                    default:
+                        if (attr.name.substr(0, ATTR_ATTR.length) == ATTR_ATTR) {
+                            var attrName, contents;
+                            if ((attrName = attr.name.substr(ATTR_ATTR.length)).length > 0 &&
+                                (contents = new ContentTemplate(attr.value)).valid) {
+                                if (!params.attrs) {
+                                    params.attrs = { };
+                                }
+                                params.attrs[attrName] = contents;
+                                params.node = node;
+                            }
+                        }
                 }
-                params.node = node;
-            }
-            if ((attr = node.attributes.getNamedItem(ATTR_OPTS))) {
-                params.options = attr.value.split(';').reduce(function (result, item) {
-                    var i = item.indexOf(':');
-                    if (i > 0) {
-                        result[item.substr(0, i).trim()] = item.substr(i + 1).trim();
-                    }
-                    return result;
-                }, {});
-                if (params.options.bind) {  // force binding
-                    params.node = node;
-                }
-            }
-            if ((attr = node.attributes.getNamedItem(ATTR_LIST))) {
-                params.listFactory = buildStatement(attr.value);
             }
             if (params.data) {
                 params.node = node;
@@ -852,24 +946,11 @@
                 params.element = node;
             }
         } else {
-            params.contents = [];
-            SUBST_REGEX.lastIndex = 0;
-            var text = node.textContent, start = 0, m, count = 0;
-            while ((m = SUBST_REGEX.exec(text)) != null) {
-                var scriptBegin = m.index;
-                if (scriptBegin > start) {
-                    params.contents.push(text.substr(start, scriptBegin - start));
-                }
-                start = SUBST_REGEX.lastIndex;
-                params.contents.push(buildStatement(m[0].substr(2, m[0].length - 3)));
-                count ++;
+            var contents = new ContentTemplate(node.textContent);
+            if (contents.valid) {
+                params.contents = contents;
             }
-            if (count > 0) {
-                if (start < text.length) {
-                    params.contents.push(text.substr(start));
-                }
-            }
-            if (count > 0 || params.data) {
+            if (params.contents || params.data) {
                 params.node = node;
                 params.element = node.parentElement || opts.container;
             }
