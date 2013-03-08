@@ -44,7 +44,7 @@ describe("core.dombind", function () {
 
             go: function (fn) {
                 var node = this.selector();
-                if (node && node.__dd_binding) {
+                if (node && DD.binding(node)) {
                     try {
                         fn();
                         this.done();
@@ -203,7 +203,7 @@ describe("core.dombind", function () {
 
             scope.bind();
             container.innerHTML = "<div data-drive-map='simple.items'><div>Id: %{ $D.id }, Name: %{ $D.name }</div><div data-drive-map='.addr'>%{ $D.pobox }@%{ $D.street }</div></div>";
-            var elem = $(container).find("div")[0];
+            var elem = container.childNodes[0];
             var items = models.query("simple.items");
             withBinding(function () { return elem; }, done).go(function () {
                 items.value = [{ id: 1, name: "a1", addr: { street: "A", pobox: 355 } }];
@@ -219,7 +219,7 @@ describe("core.dombind", function () {
 
             scope.bind();
             container.innerHTML = "<div data-drive-map='simple.items'><div data-drive-map='.emails'><a>%{ $D.value }</a></div></div>";
-            var elem = $(container).find("div")[0];
+            var elem = container.childNodes[0];
             var items = models.query("simple.items");
             withBinding(function () { return elem; }, done).go(function () {
                 items.value = [{ id: 1, name: "a1", emails: [ "a@mailbox", "b@mailbox" ] }];
@@ -229,6 +229,24 @@ describe("core.dombind", function () {
                 expect(nodes.length).to.eql(2);
                 expect(nodes[0].innerHTML).to.eql("a@mailbox");
                 expect(nodes[1].innerHTML).to.eql("b@mailbox");
+            });
+        });
+        
+        it("bind top level nodes of list item", function (done) {
+            this.timeout(200);
+            
+            scope.bind();
+            container.innerHTML = "<div data-drive-map='simple.items'><div>Something</div>TextContent</div>";
+            var elem = container.childNodes[0];
+            var items = models.query("simple.items");
+            withBinding(function () { return elem; }, done).go(function () {
+                items.value = [{ id: 1, name: "a1" }];
+                var nodes = elem.childNodes;
+                expect(nodes.length).to.eql(2);
+                for (var i = 0; i < nodes.length; i ++) {
+                    var hasBinding = DD.binding(nodes[i]) != undefined;
+                    expect(hasBinding).to.be(true);
+                }
             });
         });
     });

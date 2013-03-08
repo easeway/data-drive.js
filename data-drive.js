@@ -684,12 +684,16 @@
         }
     });
 
+    function bindingFromNode(node) {
+        return node[BINDING_PROP];
+    }
+    
     var Binding = DD.defClass(DD.Listener, {
-        constructor: function (root, dataRoot, params) {
+        constructor: function (root, scope, params) {
             DD.Listener.prototype.constructor.call(this);
 
             this.root = root;
-            this.dataRoot = dataRoot;
+            this.scope = scope;
             this.element = params.element;
             this.node = params.node;
             this.options = params.options || {};
@@ -709,7 +713,7 @@
                         return text;
                     }, "");
                 });
-            } else {
+            } else {    // params.script should only be present for elements
                 if (typeof(params.script) == 'function') {
                     this.script = params.script;
                     this.changes = params.changes;
@@ -721,20 +725,21 @@
                 }
             }
 
-            if (params.data) {      // explicit binding
-                this.data = params.data;
-            } else if (params.dataSource && params.dataSource[0] != '.') {  // find the data source
-                this.data = dataRoot.query(params.dataSource);
+            if (params.dataSource && params.dataSource[0] != '.') {  // find the data source
+                this.data = scope.dataRoot.query(params.dataSource);
             } else {
-                var data = null;
-                for (var elem = this.element; elem && elem != root.parentElement; elem = elem.parentElement) {
-                    if (elem[BINDING_PROP]) {
-                        data = elem[BINDING_PROP].data;
-                        break;
+                var data = params.data;
+                if (!data) {
+                    for (var elem = this.element; elem && elem != root.parentElement; elem = elem.parentElement) {
+                        var binding = bindingFromNode(elem);
+                        if (binding) {
+                            data = binding.data;
+                            break;
+                        }
                     }
                 }
                 if (!data) {
-                    data = dataRoot;
+                    data = scope.dataRoot;
                 }
 
                 if (params.dataSource) {
@@ -788,7 +793,7 @@
         return eval("fn = function ($C, $D, $E, $N) { return ( " + script + " ); }");
     }
 
-    Binding.create = function (node, root, dataRoot, opts) {
+    Binding.create = function (node, root, scope, opts) {
         var params = { };
         if (opts.data) {
             params.data = opts.data;
@@ -866,12 +871,12 @@
             }
             if (count > 0 || params.data) {
                 params.node = node;
-                params.element = node.parentElement;
+                params.element = node.parentElement || opts.container;
             }
         }
         
         if (params.element) {
-            return new Binding(root, dataRoot, params);
+            return new Binding(root, scope, params);
         }
         return null;
     };
@@ -971,7 +976,7 @@
                     nodes: this.createItemNodes()
                 };
                 itemView.nodes.forEach(function (node) {
-                    bindDOMTree(node, node, this.binding.dataRoot, { data: item });
+                    bindDOMTree(node, node, this.binding.scope, { data: item, container: this.container });
                 }, this);
                 item.refresh();
                 return itemView;
@@ -1041,13 +1046,13 @@
         }
     }
 
-    function bindNode(node, root, dataRoot, opts) {
+    function bindNode(node, root, scope, opts) {
         if (!opts.noUnbind) {
             unbindNode(node);
         } else if (node[BINDING_PROP]) {
             return true;
         }
-        var binding = Binding.create(node, root, dataRoot, opts);
+        var binding = Binding.create(node, root, scope, opts);
         if (binding) {
             Object.defineProperty(node, BINDING_PROP, {
                 get: function () { return binding; },
@@ -1082,14 +1087,14 @@
         });
     }
 
-    function bindDOMTree(node, root, dataRoot, opts) {
+    function bindDOMTree(node, root, scope, opts) {
         traverseDOMTree(node, function (node, level) {
             // create data binding explicitly for all top-level
             // nodes of list items, but not children
             if (level > 0) {
                 delete opts.data;
             }
-            bindNode(node, root, dataRoot, opts);
+            bindNode(node, root, scope, opts);
         });
     }
 
@@ -1175,7 +1180,7 @@
             for (var k in opts) {
                 _opts[k] = opts[k];
             }
-            bindDOMTree(this.root, this.root, this.dataRoot, _opts);
+            bindDOMTree(this.root, this.root, this, _opts);
             return this;
         },
 
@@ -1206,8 +1211,9 @@
 
         findBinding: function (node) {
             for (; node && node != this.root; node = node.parentElement) {
-                if (node[BINDING_PROP]) {
-                    return node[BINDING_PROP];
+                var binding = bindingFromNode(node);
+                if (binding) {
+                    return binding;
                 }
             }
             return null;
@@ -1221,7 +1227,7 @@
                     unbindDOMTree(record.removedNodes[i]);
                 }
                 for (i = 0; record.addedNodes && i < record.addedNodes.length; i ++) {
-                    bindDOMTree(record.addedNodes[i], self.root, self.dataRoot, { noUnbind: true });
+                    bindDOMTree(record.addedNodes[i], self.root, self, { noUnbind: true });
                 }
             });
         }
@@ -1230,8 +1236,9 @@
     DD.ListFactory = ListFactory;
     DD.TemplateListFactory = TemplateListFactory;
     DD.BindingScope = BindingScope;
-
-    document.addEventListener("DOMContentLoaded", function () {
+    DD.binding = bindingFromNode;
+    
+    jQuery(document).ready(function () {
         if (DD.settings.autobind != false && DOMObserverClass) {
             var scope = new BindingScope();
             scope.bind();
