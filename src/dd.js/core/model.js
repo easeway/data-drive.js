@@ -81,18 +81,26 @@
         }
     });
 
+    function valueOrFunction (val) {
+        if (typeof(val) == 'function') {
+            return val();
+        }
+        return val;
+    }
+    
     var Scalar = DD.defClass(Value, {
-        constructor: function () {
+        constructor: function (defaultVal, initialVal) {
             Value.prototype.constructor.call(this);
-            this._value = null;
+            this.__s.defaultVal = defaultVal == undefined ? null : defaultVal;
+            this.__s.value = valueOrFunction(initialVal == undefined ? this.__s.defaultVal : initialVal);
         },
 
         getVal: function () {
-            return this._value;
+            return this.__s.value;
         },
 
         setVal: function (val) {
-            return this._value = val;
+            return this.__s.value = (val == undefined || val == null) ? valueOrFunction(this.__s.defaultVal) : val;
         }
     });
 
@@ -338,8 +346,17 @@
     });
 
     var ScalarType = DD.defClass(Type, {
+        constructor: function (options) {
+            if (options && options.initialVal) {
+                this.initialVal = options.initialVal;
+            }
+            if (options && options.defaultVal) {
+                this.defaultVal = options.defaultVal;
+            }
+        },
+        
         createValue: function () {
-            return new Scalar();
+            return new Scalar(this.defaultVal, this.initialVal);
         }
     });
 

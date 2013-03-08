@@ -30,6 +30,38 @@ describe("core.model", function () {
         });
     });
 
+    describe("DD.ScalarType", function () {
+        it("initial value", function () {
+            var type = new DD.ScalarType({ initialVal: 3542 });
+            var v = type.createValue();
+            expect(v.value).to.eql(3542);
+            v.value = 1234;
+            expect(v.value).to.eql(1234);
+            v.value = null;
+            expect(v.value).to.be(null);
+        });
+
+        it("default value", function () {
+            var type = new DD.ScalarType({ defaultVal: "someVal" });
+            var v = type.createValue();
+            expect(v.value).to.eql("someVal");
+            v.value = 4567;
+            expect(v.value).to.eql(4567);
+            v.value = null;
+            expect(v.value).to.eql("someVal");
+        });
+        
+        it("initial value is not default value", function () {
+            var type = new DD.ScalarType({ defaultVal: "someVal", initialVal: "otherVal" });
+            var v = type.createValue();
+            expect(v.value).to.eql("otherVal");
+            v.value = 7890;
+            expect(v.value).to.eql(7890);
+            v.value = null;
+            expect(v.value).to.eql("someVal");
+        });
+    });
+    
     describe("DD.List", function () {
         var listSchema = new DD.Schema({
             items: [DD.Types.Scalar]
@@ -178,7 +210,7 @@ describe("core.model", function () {
             expect(m.members).to.be.a(DD.List);
             expect(m.members.length).to.eql(2);
             expect(m.members.valAt(0)).to.eql({ name: "Jacky", role: "Leader", emails: ["jacky@DD"] });
-            expect(m.members.valAt(1)).to.eql({ name: "Christ", role: undefined, emails: [] });
+            expect(m.members.valAt(1)).to.eql({ name: "Christ", role: null, emails: [] });
         });
 
         it("get value of model", function () {
