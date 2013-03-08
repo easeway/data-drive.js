@@ -249,6 +249,24 @@ describe("core.dombind", function () {
                 }
             });
         });
+        
+        it("update attributes when data changes", function (done) {
+            this.timeout(200);
+            
+            scope.bind();
+            container.innerHTML = "<div data-drive-map='simple'><input type='text' data-drive-attr-name='$D.title.replace(\" \", \"\").toLowerCase()' data-drive-attr-value='$D.title' /></div>";
+            var elem = container.childNodes[0];
+            var input = $(container).find("input")[0];
+            var m = models.query("simple");
+            withBinding(function () { return elem; }, done).go(function () {
+                m.title = "Title 1";
+                expect(input.value).to.eql("Title 1");
+                expect(input.name).to.eql("title1");
+                m.title = "Title 2";
+                expect(input.value).to.eql("Title 2");
+                expect(input.name).to.eql("title2");                
+            });
+        });
     });
 
     describe("DOM binding", function () {

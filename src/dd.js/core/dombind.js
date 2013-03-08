@@ -13,6 +13,7 @@
     var ATTR_MAP  = "data-drive-map";
     var ATTR_ON   = "data-drive-on";
     var ATTR_OPTS = "data-drive-opts";
+    var ATTR_ATTR = "data-drive-attr-";
     var ATTR_LIST = "data-drive-list";
     var SUBST_REGEX = /%\{[^\}]+\}/g;
 
@@ -85,6 +86,14 @@
                     }, "");
                 });
             } else {    // params.script should only be present for elements
+                if (params.attrs) {
+                    this.attrs = params.attrs;
+                    this.handlers.push(function (change) {
+                        for (var key in this.attrs) {
+                            this.node.setAttribute(key, this.attrs[key].call(this, change, this.data, this.element, this.node));
+                        }
+                    });
+                }
                 if (typeof(params.script) == 'function') {
                     this.script = params.script;
                     this.changes = params.changes;
@@ -170,51 +179,67 @@
             params.data = opts.data;
         }
         if (node.nodeType == 1) {
-            var attr = node.attributes.getNamedItem(ATTR_MAP);
-            if (attr) {
-                params.dataSource = attr.value.trim();
-                params.node = node;
-            }
-            if ((attr = node.attributes.getNamedItem(ATTR_ON))) {
-                var i = attr.value.indexOf(':');
-                if (i >= 0) {
-                    params.script = buildFunction(attr.value.substr(i + 1));
-                    params.changes = {};
-                    var changes = attr.value.substr(0, i).split(',');
-                    var count = 0;
-                    for (var i = 0; i < changes.length; i ++) {
-                        var name = changes[i].trim();
-                        if (name === "*") {
+            for (var n = 0; n < node.attributes.length; n ++) {
+                var attr = node.attributes[n];
+                switch (attr.name) {
+                    case ATTR_MAP:
+                        params.dataSource = attr.value.trim();
+                        params.node = node;
+                        break;
+                    case ATTR_ON: {
+                        var i = attr.value.indexOf(':');
+                        if (i >= 0) {
+                            params.script = buildFunction(attr.value.substr(i + 1));
+                            params.changes = {};
+                            var changes = attr.value.substr(0, i).split(',');
+                            var count = 0;
+                            for (var i = 0; i < changes.length; i ++) {
+                                var name = changes[i].trim();
+                                if (name === "*") {
+                                    params.changes = null;
+                                    break;
+                                } else if (name != "") {
+                                    params.changes[name] = true;
+                                    count ++;
+                                }
+                            }
+                            if (count == 0) {
+                                params.changes = null;
+                            }
+                        } else {
+                            params.script = buildFunction(attr.value);
                             params.changes = null;
-                            break;
-                        } else if (name != "") {
-                            params.changes[name] = true;
-                            count ++;
                         }
+                        params.node = node;
+                        break;
                     }
-                    if (count == 0) {
-                        params.changes = null;
-                    }
-                } else {
-                    params.script = buildFunction(attr.value);
-                    params.changes = null;
+                    case ATTR_OPTS:
+                        params.options = attr.value.split(';').reduce(function (result, item) {
+                            var i = item.indexOf(':');
+                            if (i > 0) {
+                                result[item.substr(0, i).trim()] = item.substr(i + 1).trim();
+                            }
+                            return result;
+                        }, {});
+                        if (params.options.bind) {  // force binding
+                            params.node = node;
+                        }
+                        break;
+                    case ATTR_LIST:
+                        params.listFactory = buildStatement(attr.value);
+                        break;
+                    default:
+                        if (attr.name.substr(0, ATTR_ATTR.length) == ATTR_ATTR) {
+                            var attrName = attr.name.substr(ATTR_ATTR.length);
+                            if (attrName.length > 0) {
+                                if (!params.attrs) {
+                                    params.attrs = { };
+                                }
+                                params.attrs[attrName] = buildStatement(attr.value);
+                                params.node = node;
+                            }
+                        }
                 }
-                params.node = node;
-            }
-            if ((attr = node.attributes.getNamedItem(ATTR_OPTS))) {
-                params.options = attr.value.split(';').reduce(function (result, item) {
-                    var i = item.indexOf(':');
-                    if (i > 0) {
-                        result[item.substr(0, i).trim()] = item.substr(i + 1).trim();
-                    }
-                    return result;
-                }, {});
-                if (params.options.bind) {  // force binding
-                    params.node = node;
-                }
-            }
-            if ((attr = node.attributes.getNamedItem(ATTR_LIST))) {
-                params.listFactory = buildStatement(attr.value);
             }
             if (params.data) {
                 params.node = node;

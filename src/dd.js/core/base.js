@@ -6,7 +6,7 @@
     "use strict";
 
     var DD = {
-        VERSION: "2.0.0"
+        VERSION: "2.1.0"
     };
 
     DD.defClass = function (base, proto) {
