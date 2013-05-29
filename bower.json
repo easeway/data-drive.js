@@ -1,0 +1,15 @@
+{
+  "name": "data-drive.js",
+  "version": "2.1.0",
+  "main": "data-drive.min.js",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "components",
+    "src",
+    "deps",
+    "doc",
+    "test",
+    "package.json"
+  ]
+}

@@ -141,6 +141,12 @@ npm install
 npm run-script build
 ```
 
+Install with `bower`
+
+```bash
+bower install data-drive.js
+```
+
 How to Test Data-Drive Javascript Framework
 ===========================================
 
