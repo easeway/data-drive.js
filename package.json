@@ -1,0 +1,13 @@
+{
+    "name": "data-drive.js",
+    "version": "2.1.0",
+    "private": true,
+    "scripts": {
+        "test": "node test/app",
+        "build": "uglifyjs src/dd.js/core/base.js src/dd.js/core/observer.js src/dd.js/core/extensions.js src/dd.js/core/model.js src/dd.js/core/dombind.js src/dd.js/extra/ajaxconnect.js --comments -m -o data-drive.min.js"
+    },
+    "devDependencies": {
+        "express": "3.0.3",
+        "uglify-js": "2.3.6"
+    }
+}

@@ -5,7 +5,7 @@
         if (ajaxAvailable == undefined) {
             ajaxAvailable = false;
             try {
-                jQuery.ajax("package.json", {
+                jQuery.ajax("sample.json", {
                     async: false,
                     complete: function (xhr, textStatus) {
                         if (textStatus === 'success') {

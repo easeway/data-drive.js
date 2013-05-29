@@ -2,6 +2,8 @@
 // All rights reserved.
 // -----------------------------------------------------------------------------
 
+/** @preserve https://github.com/easeway/data-drive.js */
+
 !function (exports) {
     "use strict";
 
